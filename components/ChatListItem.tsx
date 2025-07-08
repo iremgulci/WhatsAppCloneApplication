@@ -32,7 +32,7 @@ const ChatListItem: React.FC<ChatListItemProps> = ({ chat }) => {
 
 const router = useRouter();
 const handlePress = () => {
-  router.push({ pathname: "/chats/[chatId]", params: { chatId: chat.id, chatName: chat.name } });
+  router.push({ pathname: "/chats/[chatId]", params: { chatId: chat.id, chatName: chat.name, avatarUrl: chat.avatar } });
 };
 
   return (

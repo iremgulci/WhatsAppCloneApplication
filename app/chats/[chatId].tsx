@@ -3,14 +3,14 @@ import { StackScreenProps } from '@react-navigation/stack';
 import { useLocalSearchParams } from 'expo-router'; // Expo Router'dan useParams yerine useLocalSearchParams
 import * as React from 'react';
 import {
-    FlatList,
-    KeyboardAvoidingView,
-    Platform,
-    SafeAreaView,
-    StyleSheet,
-    TextInput,
-    TouchableOpacity,
-    View
+  FlatList,
+  KeyboardAvoidingView,
+  Platform,
+  SafeAreaView,
+  StyleSheet,
+  TextInput,
+  TouchableOpacity,
+  View
 } from 'react-native';
 import MessageBubble, { Message } from '../../components/MessageBubble'; // MessageBubble'ı import ediyoruz
 import { Colors } from '../../components/SharedStyles'; // Stilleri import ediyoruz
@@ -36,8 +36,10 @@ const initialMessagesData: Message[] = [
 
 export default function ChatDetailScreen() { // Props'u useLocalSearchParams ile alacağız
   const params = useLocalSearchParams();
+  console.log('ChatDetailScreen params:', params); // Debug: log all params
   const chatName = params.chatName as string; // tip dönüşümü
   const chatId = params.chatId as string; // tip dönüşümü
+  const avatarUrl = params.avatarUrl as string; // tip dönüşümü
 
   const [messageInput, setMessageInput] = React.useState('');
   const [messages, setMessages] = React.useState<Message[]>(initialMessagesData);
