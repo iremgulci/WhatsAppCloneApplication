@@ -13,6 +13,11 @@ export interface Chat { // Export ettik, çünkü başka dosyalarda da kullanaca
   avatar: string;
 }
 
+type ChatListItemProps = {
+  chat: Chat;
+  onPress: () => void; // onPress prop'u ekledik
+};
+
 // Ana Stack Navigator için rota listesi (Bu tanım her yerde aynı olmalı!)
 type RootStackParamList = {
   ChatsList: undefined;
@@ -21,10 +26,6 @@ type RootStackParamList = {
 
 // ChatsScreen içinde useNavigation hook'u için tip
 type ChatsScreenNavigationProp = NavigationProp<RootStackParamList, 'ChatsList'>;
-
-interface ChatListItemProps {
-  chat: Chat;
-}
 
 const ChatListItem: React.FC<ChatListItemProps> = ({ chat }) => {
   const navigation = useNavigation<ChatsScreenNavigationProp>();

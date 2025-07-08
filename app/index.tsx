@@ -1,5 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
-import { createBottomTabNavigator } from '@react-navigation/bottom-tabs'; // Bottom Tabs için
+import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
+import { useRouter } from 'expo-router'; // useRouter'ı import ediyoruz
 import * as React from 'react';
 import { Platform, SafeAreaView, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Colors, GlobalStyles } from '../components/SharedStyles';
@@ -9,34 +10,39 @@ import CallsScreen from './calls';
 import ChatsScreen from './chats';
 import CommunitiesScreen from './communities';
 import UpdatesScreen from './updates';
+// import ProfileScreen from './profiles'; // Artık doğrudan yönlendirme yapacağımız için bileşeni burada import etmeye gerek yok
 
 // Bottom Tab Navigator'ı oluşturuyoruz
 const Tab = createBottomTabNavigator();
 
-// Custom Header Bileşeni (WhatsApp'ın üst kısmı için)
-// Bunu daha sonra ayrı bir dosyaya taşıyabiliriz.
-const CustomWhatsAppHeader = () => (
-  <View style={styles.headerContainer}>
-    <Text style={styles.headerTitle}>WhatsApp</Text>
-    <View style={styles.headerIcons}>
-      {/* Kamera ikonu */}
-      <TouchableOpacity style={styles.iconButton}>
-        <Ionicons name="camera-outline" size={24} color={Colors.headerText} />
-      </TouchableOpacity>
-      {/* Arama ikonu */}
-      <TouchableOpacity style={styles.iconButton}>
-        <Ionicons name="search" size={24} color={Colors.headerText} />
-      </TouchableOpacity>
-      {/* Üç nokta menü ikonu */}
-      <TouchableOpacity style={styles.iconButton}>
-        <Ionicons name="ellipsis-vertical" size={24} color={Colors.headerText} />
-      </TouchableOpacity>
-    </View>
-  </View>
-);
-
-
 export default function AppTabs() {
+  const router = useRouter(); // useRouter hook'unu burada başlatıyoruz
+
+  // Custom Header Bileşeni (WhatsApp'ın üst kısmı için)
+  // useRouter'ı kullanabilmek için AppTabs fonksiyonunun içine taşıdık
+  const CustomWhatsAppHeader = () => (
+    <View style={styles.headerContainer}>
+      {/* Başlığa tıklanabilir özellik ekliyoruz */}
+      <TouchableOpacity onPress={() => router.push('./profiles')}>
+        <Text style={styles.headerTitle}>WhatsApp</Text>
+      </TouchableOpacity>
+      <View style={styles.headerIcons}>
+        {/* Kamera ikonu */}
+        <TouchableOpacity style={styles.iconButton}>
+          <Ionicons name="camera-outline" size={24} color={Colors.headerText} />
+        </TouchableOpacity>
+        {/* Arama ikonu */}
+        <TouchableOpacity style={styles.iconButton}>
+          <Ionicons name="search" size={24} color={Colors.headerText} />
+        </TouchableOpacity>
+        {/* Üç nokta menü ikonu */}
+        <TouchableOpacity style={styles.iconButton}>
+          <Ionicons name="ellipsis-vertical" size={24} color={Colors.headerText} />
+        </TouchableOpacity>
+      </View>
+    </View>
+  );
+
   return (
     <SafeAreaView style={GlobalStyles.safeArea}>
       <CustomWhatsAppHeader /> {/* Ana Header'ı buraya ekliyoruz */}

@@ -14,6 +14,7 @@ export const Colors = {
   inputBorder: '#F0F0F0',
   textPrimary: '#1F2C34', // Koyu gri metin
   blueTick: '#34B7F1', // Mavi tik rengi
+  errorRed: '#FF0000', // Hata mesajları için kırmızı
 };
 
 export const GlobalStyles = StyleSheet.create({

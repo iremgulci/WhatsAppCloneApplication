@@ -1,7 +1,8 @@
+import { useRouter } from 'expo-router'; // useRouter'ı import ediyoruz
 import * as React from 'react';
 import { FlatList, View } from 'react-native';
-import ChatListItem, { Chat } from '../../components/ChatListItem'; // ChatListItem'ı import ediyoruz
-import { GlobalStyles } from '../../components/SharedStyles'; // Global stilleri import ediyoruz
+import ChatListItem, { Chat } from '../../components/ChatListItem';
+import { GlobalStyles } from '../../components/SharedStyles';
 
 // Örnek Sohbet Verileri
 const chatsData: Chat[] = [
@@ -50,13 +51,26 @@ const chatsData: Chat[] = [
 ];
 
 export default function ChatsScreen() {
+  const router = useRouter(); // useRouter hook'unu kullanıyoruz
+
+  const handleChatPress = (chat: Chat) => {
+    // push fonksiyonunu kullanarak parametreleri geçiyoruz
+    router.push({
+      pathname: '/chats/[chatId]',
+      params: {
+        chatId: chat.id,
+        chatName: chat.name,
+        avatarUrl: chat.avatar, // Yeni eklenen avatarUrl
+      },
+    });
+  };
+
   return (
     <View style={GlobalStyles.screenContainer}>
       <FlatList
         data={chatsData}
         keyExtractor={(item) => item.id}
-        renderItem={({ item }) => <ChatListItem chat={item} />}
-        // contentContainerStyle={styles.chatListContent} // Ortak style'a taşıyabiliriz
+        renderItem={({ item }) => <ChatListItem chat={item} onPress={() => handleChatPress(item)} />}
       />
     </View>
   );
