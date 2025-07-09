@@ -40,7 +40,7 @@ const handlePress = () => {
       <Image source={{ uri: chat.avatar }} style={styles.avatar} />
       <View style={styles.chatDetails}>
         <Text style={styles.chatName}>{chat.name}</Text>
-        <Text style={styles.lastMessage} numberOfLines={1}>{chat.lastMessage}</Text>
+        <Text style={styles.lastMessage}numberOfLines={1}>{chat.lastMessage}</Text>
       </View>
       <Text style={styles.chatTime}>{chat.time}</Text>
     </TouchableOpacity>

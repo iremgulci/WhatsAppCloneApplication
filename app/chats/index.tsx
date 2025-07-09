@@ -1,66 +1,38 @@
-import { useRouter } from 'expo-router'; // useRouter'ı import ediyoruz
+import { useRouter } from 'expo-router';
 import * as React from 'react';
 import { FlatList, View } from 'react-native';
 import ChatListItem, { Chat } from '../../components/ChatListItem';
 import { GlobalStyles } from '../../components/SharedStyles';
-
-// Örnek Sohbet Verileri
-const chatsData: Chat[] = [
-  {
-    id: '1',
-    name: 'Ayşe Yılmaz',
-    lastMessage: 'Tamamdır, yarın görüşürüz!',
-    time: '10:30',
-    avatar: 'https://randomuser.me/api/portraits/women/1.jpg',
-  },
-  {
-    id: '2',
-    name: 'Mehmet Demir',
-    lastMessage: 'Toplantı ne zaman?',
-    time: 'Dün',
-    avatar: 'https://randomuser.me/api/portraits/men/2.jpg',
-  },
-  {
-    id: '3',
-    name: 'Zeynep Kaya',
-    lastMessage: 'Harika bir fikir!',
-    time: 'Cuma',
-    avatar: 'https://randomuser.me/api/portraits/women/3.jpg',
-  },
-  {
-    id: '4',
-    name: 'Ali Can',
-    lastMessage: 'Neredesin?',
-    time: '09:15',
-    avatar: 'https://randomuser.me/api/portraits/men/4.jpg',
-  },
-  {
-    id: '5',
-    name: 'Elif Su',
-    lastMessage: 'Görüşürüz :)',
-    time: '08:00',
-    avatar: 'https://randomuser.me/api/portraits/women/5.jpg',
-  },
-  {
-    id: '6',
-    name: 'Burak Aslan',
-    lastMessage: 'Proje hakkında konuşalım mı?',
-    time: 'Pzt',
-    avatar: 'https://randomuser.me/api/portraits/men/6.jpg',
-  },
-];
+import { addChat, getChats, setupDatabase } from '../database';
 
 export default function ChatsScreen() {
-  const router = useRouter(); // useRouter hook'unu kullanıyoruz
+  const router = useRouter();
+  const [chats, setChats] = React.useState<Chat[]>([]);
+
+  React.useEffect(() => {
+    setupDatabase();
+    const chatsFromDb = getChats();
+    if (chatsFromDb.length === 0) {
+      // Sadece tablo boşsa örnek verileri ekle
+      addChat('Ayşe Yılmaz', 'Tamamdır, yarın görüşürüz!', '10:30', 'https://randomuser.me/api/portraits/women/1.jpg');
+      addChat('Mehmet Demir', 'Toplantı ne zaman?', 'Dün', 'https://randomuser.me/api/portraits/men/2.jpg');
+      addChat('Zeynep Kaya', 'Harika bir fikir!', 'Cuma', 'https://randomuser.me/api/portraits/women/3.jpg');
+      addChat('Ali Can', 'Neredesin?', '09:15', 'https://randomuser.me/api/portraits/men/4.jpg');
+      addChat('Elif Su', 'Görüşürüz :)', '08:00', 'https://randomuser.me/api/portraits/women/5.jpg');
+      addChat('Burak Aslan', 'Proje hakkında konuşalım mı?', 'Pzt', 'https://randomuser.me/api/portraits/men/6.jpg');
+      setChats(getChats()); // Eklemeden sonra tekrar oku
+    } else {
+      setChats(chatsFromDb);
+    }
+  }, []);
 
   const handleChatPress = (chat: Chat) => {
-    // push fonksiyonunu kullanarak parametreleri geçiyoruz
     router.push({
       pathname: '/chats/[chatId]',
       params: {
         chatId: chat.id,
         chatName: chat.name,
-        avatarUrl: chat.avatar, // Yeni eklenen avatarUrl
+        avatarUrl: chat.avatar,
       },
     });
   };
@@ -68,8 +40,8 @@ export default function ChatsScreen() {
   return (
     <View style={GlobalStyles.screenContainer}>
       <FlatList
-        data={chatsData}
-        keyExtractor={(item) => item.id}
+        data={chats}
+        keyExtractor={(item) => item.id.toString()}
         renderItem={({ item }) => <ChatListItem chat={item} onPress={() => handleChatPress(item)} />}
       />
     </View>

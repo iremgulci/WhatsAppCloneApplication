@@ -18,12 +18,8 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({ message }) => (
     styles.messageBubble,
     message.isMine ? styles.myMessageBubble : styles.otherMessageBubble
   ]}>
-    <Text style={message.isMine ? styles.myMessageText : styles.otherMessageText}>
-      {message.text}
-    </Text>
-    <Text style={[styles.messageTime, message.isMine ? styles.myMessageTime : styles.otherMessageTime]}>
-      {message.time}
-    </Text>
+    <Text style={message.isMine ? styles.myMessageText : styles.otherMessageText}>{message.text}</Text>
+    <Text style={[styles.messageTime, message.isMine ? styles.myMessageTime : styles.otherMessageTime]}>{message.time}</Text>
   </View>
 );
 
