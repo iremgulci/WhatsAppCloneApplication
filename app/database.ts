@@ -146,4 +146,8 @@ export const getMessagesForChat = (chatId: number): any[] => {
   return db.getAllSync('SELECT * FROM messages WHERE chatId = ? ORDER BY id ASC;', [chatId]);
 };
 
+export const clearMessages = () => {
+  db.runSync('DELETE FROM messages;');
+};
+
 export default db;

@@ -1,4 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
+import { format } from 'date-fns';
+import { tr } from 'date-fns/locale';
 import { useLocalSearchParams } from 'expo-router';
 import * as React from 'react';
 import {
@@ -25,12 +27,22 @@ export default function ChatDetailScreen() {
   React.useEffect(() => {
     setupMessagesTable();
     // Mesajları veritabanından yükle
-    const msgs = getMessagesForChat(chatId).map((m: any) => ({
-      id: m.id.toString(),
-      text: m.text,
-      isMine: !!m.isMine,
-      time: m.time,
-    }));
+    const msgs = getMessagesForChat(chatId).map((m: any) => {
+      let formattedTime = m.time;
+      if (m.time) {
+        const parsed = Date.parse(m.time);
+        if (!isNaN(parsed)) {
+          const d = new Date(parsed);
+          formattedTime = format(d, 'dd.MM.yy HH:mm', { locale: tr });
+        }
+      }
+      return {
+        id: m.id.toString(),
+        text: m.text,
+        isMine: !!m.isMine,
+        time: formattedTime,
+      };
+    });
     setMessages(msgs);
   }, [chatId]);
 
@@ -38,15 +50,25 @@ export default function ChatDetailScreen() {
 
   const handleSendMessage = () => {
     if (messageInput.trim()) {
-      const time = new Date().toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' });
+      const time = new Date().toISOString();
       addMessage(chatId, messageInput.trim(), true, time);
       // Mesajları tekrar yükle
-      const msgs = getMessagesForChat(chatId).map((m: any) => ({
-        id: m.id.toString(),
-        text: m.text,
-        isMine: !!m.isMine,
-        time: m.time,
-      }));
+      const msgs = getMessagesForChat(chatId).map((m: any) => {
+        let formattedTime = m.time;
+        if (m.time) {
+          const parsed = Date.parse(m.time);
+          if (!isNaN(parsed)) {
+            const d = new Date(parsed);
+            formattedTime = format(d, 'dd.MM.yy HH:mm', { locale: tr });
+          }
+        }
+        return {
+          id: m.id.toString(),
+          text: m.text,
+          isMine: !!m.isMine,
+          time: formattedTime,
+        };
+      });
       setMessages(msgs);
       setMessageInput('');
     }
