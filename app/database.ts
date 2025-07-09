@@ -122,4 +122,28 @@ export const getUpdates = (): any[] => {
   return db.getAllSync('SELECT * FROM updates;');
 };
 
+// Messages tablosu ve fonksiyonları
+export const setupMessagesTable = () => {
+  db.execSync(`
+    CREATE TABLE IF NOT EXISTS messages (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      chatId INTEGER,
+      text TEXT,
+      isMine INTEGER,
+      time TEXT
+    );
+  `);
+};
+
+export const addMessage = (chatId: number, text: string, isMine: boolean, time: string) => {
+  db.runSync(
+    'INSERT INTO messages (chatId, text, isMine, time) VALUES (?, ?, ?, ?);',
+    [chatId, text, isMine ? 1 : 0, time]
+  );
+};
+
+export const getMessagesForChat = (chatId: number): any[] => {
+  return db.getAllSync('SELECT * FROM messages WHERE chatId = ? ORDER BY id ASC;', [chatId]);
+};
+
 export default db;

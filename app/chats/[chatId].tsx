@@ -1,6 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
-import { StackScreenProps } from '@react-navigation/stack';
-import { useLocalSearchParams } from 'expo-router'; // Expo Router'dan useParams yerine useLocalSearchParams
+import { useLocalSearchParams } from 'expo-router';
 import * as React from 'react';
 import {
   FlatList,
@@ -12,50 +11,43 @@ import {
   TouchableOpacity,
   View
 } from 'react-native';
-import MessageBubble, { Message } from '../../components/MessageBubble'; // MessageBubble'ı import ediyoruz
-import { Colors } from '../../components/SharedStyles'; // Stilleri import ediyoruz
+import MessageBubble, { Message } from '../../components/MessageBubble';
+import { Colors } from '../../components/SharedStyles';
+import { addMessage, getMessagesForChat, setupMessagesTable } from '../database';
 
-// RootStackParamList'i buraya da kopyalamamız gerekiyor, veya ortak bir yere taşıyabiliriz.
-// Şimdilik buraya kopyalayalım, daha sonra daha iyi bir yere taşırız.
-type RootStackParamList = {
-  ChatsList: undefined;
-  ChatDetail: { chatName: string; chatId: string };
-};
-type ChatDetailScreenProps = StackScreenProps<RootStackParamList, 'ChatDetail'>;
-
-// Örnek Mesaj Verileri (En ESKİDEN en YENİYE doğru sıralanır)
-const initialMessagesData: Message[] = [
-  { id: 'm1', text: 'Merhaba!', isMine: false, time: '10:00' },
-  { id: 'm2', text: 'Nasılsın?', isMine: true, time: '10:01' },
-  { id: 'm3', text: 'İyiyim, sen nasılsın?', isMine: false, time: '10:02' },
-  { id: 'm4', text: 'Ben de iyiyim. Bugün ne yapıyorsun?', isMine: true, time: '10:03' },
-  { id: 'm5', text: 'Şu an React Native öğreniyorum :)', isMine: false, time: '10:05' },
-  { id: 'm6', text: 'Harika! Kolay gelsin.', isMine: true, time: '10:06' },
-  { id: 'm7', text: 'Teşekkürler!', isMine: false, time: '10:07' },
-];
-
-export default function ChatDetailScreen() { // Props'u useLocalSearchParams ile alacağız
+export default function ChatDetailScreen() {
   const params = useLocalSearchParams();
-  console.log('ChatDetailScreen params:', params); // Debug: log all params
-  const chatName = params.chatName as string; // tip dönüşümü
-  const chatId = params.chatId as string; // tip dönüşümü
-  const avatarUrl = params.avatarUrl as string; // tip dönüşümü
+  const chatId = Number(params.chatId); // chatId artık sayı
 
   const [messageInput, setMessageInput] = React.useState('');
-  const [messages, setMessages] = React.useState<Message[]>(initialMessagesData);
+  const [messages, setMessages] = React.useState<Message[]>([]);
+
+  React.useEffect(() => {
+    setupMessagesTable();
+    // Mesajları veritabanından yükle
+    const msgs = getMessagesForChat(chatId).map((m: any) => ({
+      id: m.id.toString(),
+      text: m.text,
+      isMine: !!m.isMine,
+      time: m.time,
+    }));
+    setMessages(msgs);
+  }, [chatId]);
 
   const reversedMessages = React.useMemo(() => [...messages].reverse(), [messages]);
 
   const handleSendMessage = () => {
     if (messageInput.trim()) {
-      const newMessage: Message = {
-        id: `m${messages.length + 1}-${Date.now()}`, // Daha benzersiz ID
-        text: messageInput.trim(),
-        isMine: true,
-        time: new Date().toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' }),
-      };
-
-      setMessages((prevMessages) => [...prevMessages, newMessage]);
+      const time = new Date().toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' });
+      addMessage(chatId, messageInput.trim(), true, time);
+      // Mesajları tekrar yükle
+      const msgs = getMessagesForChat(chatId).map((m: any) => ({
+        id: m.id.toString(),
+        text: m.text,
+        isMine: !!m.isMine,
+        time: m.time,
+      }));
+      setMessages(msgs);
       setMessageInput('');
     }
   };
@@ -76,7 +68,6 @@ export default function ChatDetailScreen() { // Props'u useLocalSearchParams ile
         style={styles.messageInputContainerWrapper}
       >
         <View style={styles.messageInputContainer}>
-          <Ionicons name="happy-outline" size={24} color="#667781" style={styles.inputIcon} />
           <TextInput
             style={styles.textInput}
             placeholder="Mesaj yazın"
@@ -107,7 +98,7 @@ const styles = StyleSheet.create({
   },
   messageInputContainerWrapper: {
     width: '100%',
-    backgroundColor: Colors.inputBorder, // hafif gri
+    backgroundColor: Colors.inputBorder,
     paddingTop: 5,
     paddingBottom: Platform.OS === 'ios' ? 20 : 5,
   },
@@ -119,9 +110,6 @@ const styles = StyleSheet.create({
     marginHorizontal: 10,
     paddingHorizontal: 10,
     minHeight: 50,
-  },
-  inputIcon: {
-    marginRight: 10,
   },
   textInput: {
     flex: 1,
