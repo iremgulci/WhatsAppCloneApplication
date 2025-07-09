@@ -54,7 +54,17 @@ export default function ChatsScreen() {
       }
       return { ...chat, lastMessage, time: lastTime, hasMessages: messages.length > 0 };
     });
-    setChats(chatsWithLastMessage.filter(c => c.hasMessages));
+    // Sadece mesajı olan chatleri göster ve son mesaj zamanına göre sırala
+    const sortedChats = chatsWithLastMessage
+      .filter(c => c.hasMessages)
+      .sort((a, b) => {
+        const aMsg = getMessagesForChat(Number(a.id));
+        const bMsg = getMessagesForChat(Number(b.id));
+        const aTime = aMsg.length > 0 ? Date.parse(aMsg[aMsg.length - 1].time) : 0;
+        const bTime = bMsg.length > 0 ? Date.parse(bMsg[bMsg.length - 1].time) : 0;
+        return bTime - aTime;
+      });
+    setChats(sortedChats);
   };
 
   React.useEffect(() => {
