@@ -1,31 +1,30 @@
+import { Ionicons } from '@expo/vector-icons';
 import { format } from 'date-fns';
 import { tr } from 'date-fns/locale';
-import { useRouter } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
 import * as React from 'react';
-import { FlatList, View } from 'react-native';
+import { FlatList, Modal, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import ChatListItem, { Chat } from '../../components/ChatListItem';
 import { GlobalStyles } from '../../components/SharedStyles';
 import { addChat, getChats, getMessagesForChat, setupDatabase } from '../database';
 
-
-//clearMessages();
+const CONTACTS = [
+  { id: '101', name: 'Zeynep Kaya', avatar: 'https://randomuser.me/api/portraits/women/3.jpg' },
+  { id: '102', name: 'Ali Can', avatar: 'https://randomuser.me/api/portraits/men/4.jpg' },
+  { id: '103', name: 'Elif Su', avatar: 'https://randomuser.me/api/portraits/women/5.jpg' },
+  { id: '104', name: 'Burak Aslan', avatar: 'https://randomuser.me/api/portraits/men/6.jpg' },
+  { id: '105', name: 'Deniz Yıldız', avatar: 'https://randomuser.me/api/portraits/women/7.jpg' },
+  { id: '106', name: 'Mert Kılıç', avatar: 'https://randomuser.me/api/portraits/men/8.jpg' },
+  { id: '107', name: 'Selin Aksoy', avatar: 'https://randomuser.me/api/portraits/women/9.jpg' },
+  { id: '108', name: 'Baran Güneş', avatar: 'https://randomuser.me/api/portraits/men/10.jpg' },
+];
 
 export default function ChatsScreen() {
   const router = useRouter();
   const [chats, setChats] = React.useState<Chat[]>([]);
+  const [modalVisible, setModalVisible] = React.useState(false);
 
-  React.useEffect(() => {
-    setupDatabase();
-    const chatsFromDb = getChats();
-    if (chatsFromDb.length === 0) {
-      addChat('Ayşe Yılmaz', 'Son Mesaj Yok', '', 'https://randomuser.me/api/portraits/women/1.jpg');
-      addChat('Mehmet Demir', 'Son Mesaj Yok', '', 'https://randomuser.me/api/portraits/men/2.jpg');
-      addChat('Zeynep Kaya', 'Son Mesaj Yok', '', 'https://randomuser.me/api/portraits/women/3.jpg');
-      addChat('Ali Can', 'Son Mesaj Yok', '', 'https://randomuser.me/api/portraits/men/4.jpg');
-      addChat('Elif Su', 'Son Mesaj Yok', '', 'https://randomuser.me/api/portraits/women/5.jpg');
-      addChat('Burak Aslan', 'Son Mesaj Yok', '', 'https://randomuser.me/api/portraits/men/6.jpg');
-    }
-    // Her chat için son mesajı ve zamanını bul
+  const reloadChats = () => {
     const chatsWithLastMessage = getChats().map((chat: any) => {
       const messages = getMessagesForChat(Number(chat.id));
       let lastMessage = 'Son Mesaj Yok';
@@ -53,10 +52,30 @@ export default function ChatsScreen() {
           }
         }
       }
-      return { ...chat, lastMessage, time: lastTime };
+      return { ...chat, lastMessage, time: lastTime, hasMessages: messages.length > 0 };
     });
-    setChats(chatsWithLastMessage);
+    setChats(chatsWithLastMessage.filter(c => c.hasMessages));
+  };
+
+  React.useEffect(() => {
+    setupDatabase();
+    const chatsFromDb = getChats();
+    if (chatsFromDb.length === 0) {
+      addChat('Ayşe Yılmaz', 'Son Mesaj Yok', '', 'https://randomuser.me/api/portraits/women/1.jpg');
+      addChat('Mehmet Demir', 'Son Mesaj Yok', '', 'https://randomuser.me/api/portraits/men/2.jpg');
+      addChat('Zeynep Kaya', 'Son Mesaj Yok', '', 'https://randomuser.me/api/portraits/women/3.jpg');
+      addChat('Ali Can', 'Son Mesaj Yok', '', 'https://randomuser.me/api/portraits/men/4.jpg');
+      addChat('Elif Su', 'Son Mesaj Yok', '', 'https://randomuser.me/api/portraits/women/5.jpg');
+      addChat('Burak Aslan', 'Son Mesaj Yok', '', 'https://randomuser.me/api/portraits/men/6.jpg');
+    }
+    reloadChats();
   }, []);
+
+  useFocusEffect(
+    React.useCallback(() => {
+      reloadChats();
+    }, [])
+  );
 
   const handleChatPress = (chat: Chat) => {
     router.push({
@@ -69,6 +88,28 @@ export default function ChatsScreen() {
     });
   };
 
+  const handleStartChat = (contact: { id: string; name: string; avatar: string }) => {
+    let chat = chats.find(c => c.name === contact.name);
+    if (!chat) {
+      addChat(contact.name, 'Son Mesaj Yok', '', contact.avatar);
+      // Yeni eklenen chat'i veritabanından bul
+      const allChats = getChats();
+      chat = allChats.find(c => c.name === contact.name);
+      reloadChats();
+    }
+    setModalVisible(false);
+    setTimeout(() => reloadChats(), 500);
+    if (chat) {
+      handleChatPress({
+        id: chat.id,
+        name: contact.name,
+        avatar: contact.avatar,
+        lastMessage: '',
+        time: ''
+      });
+    }
+  };
+
   return (
     <View style={GlobalStyles.screenContainer}>
       <FlatList
@@ -76,6 +117,117 @@ export default function ChatsScreen() {
         keyExtractor={(item) => item.id.toString()}
         renderItem={({ item }) => <ChatListItem chat={item} onPress={() => handleChatPress(item)} />}
       />
+      <TouchableOpacity style={styles.fab} onPress={() => setModalVisible(true)}>
+        <Ionicons name="chatbubble-ellipses" size={28} color="white" />
+      </TouchableOpacity>
+      <Modal visible={modalVisible} animationType="slide" transparent>
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>Kişi Seç</Text>
+            <FlatList
+              data={CONTACTS}
+              keyExtractor={item => item.id}
+              renderItem={({ item }) => (
+                <TouchableOpacity style={styles.contactItem} onPress={() => handleStartChat(item)}>
+                  <View style={styles.contactAvatar}>
+                    <Text style={styles.contactAvatarText}>{item.name[0]}</Text>
+                  </View>
+                  <Text style={styles.contactName}>{item.name}</Text>
+                </TouchableOpacity>
+              )}
+            />
+            <TouchableOpacity style={styles.closeButton} onPress={() => setModalVisible(false)}>
+              <Text style={styles.closeButtonText}>Kapat</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
+
+const styles = StyleSheet.create({
+  newChatButton: {
+    backgroundColor: '#25D366',
+    padding: 12,
+    borderRadius: 24,
+    alignItems: 'center',
+    margin: 12,
+  },
+  newChatButtonText: {
+    color: 'white',
+    fontWeight: 'bold',
+    fontSize: 16,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.3)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalContent: {
+    backgroundColor: 'white',
+    borderRadius: 16,
+    padding: 20,
+    width: '80%',
+    maxHeight: '70%',
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    marginBottom: 12,
+    textAlign: 'center',
+  },
+  contactItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 10,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: '#eee',
+  },
+  contactAvatar: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#ECE5DD',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+  },
+  contactAvatarText: {
+    fontWeight: 'bold',
+    fontSize: 16,
+    color: '#555',
+  },
+  contactName: {
+    fontSize: 16,
+    color: '#222',
+  },
+  closeButton: {
+    marginTop: 16,
+    backgroundColor: '#eee',
+    padding: 10,
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  closeButtonText: {
+    color: '#333',
+    fontWeight: 'bold',
+  },
+  fab: {
+    position: 'absolute',
+    right: 24,
+    bottom: 32,
+    backgroundColor: '#25D366',
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    justifyContent: 'center',
+    alignItems: 'center',
+    elevation: 4,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+  },
+});
