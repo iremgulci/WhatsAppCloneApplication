@@ -4,6 +4,7 @@ import { tr } from 'date-fns/locale';
 import { useLocalSearchParams } from 'expo-router';
 import * as React from 'react';
 import {
+  Alert,
   FlatList,
   KeyboardAvoidingView,
   Platform,
@@ -15,7 +16,7 @@ import {
 } from 'react-native';
 import MessageBubble, { Message } from '../../components/MessageBubble';
 import { Colors } from '../../components/SharedStyles';
-import { addMessage, getMessagesForChat, setupMessagesTable } from '../database';
+import { addMessage, deleteMessage, getMessagesForChat, setupMessagesTable } from '../database';
 
 export default function ChatDetailScreen() {
   const params = useLocalSearchParams();
@@ -24,9 +25,7 @@ export default function ChatDetailScreen() {
   const [messageInput, setMessageInput] = React.useState('');
   const [messages, setMessages] = React.useState<Message[]>([]);
 
-  React.useEffect(() => {
-    setupMessagesTable();
-    // Mesajları veritabanından yükle
+  const loadMessages = React.useCallback(() => {
     const msgs = getMessagesForChat(chatId).map((m: any) => {
       let formattedTime = m.time;
       if (m.time) {
@@ -46,32 +45,38 @@ export default function ChatDetailScreen() {
     setMessages(msgs);
   }, [chatId]);
 
+  React.useEffect(() => {
+    setupMessagesTable();
+    loadMessages();
+  }, [chatId, loadMessages]);
+
   const reversedMessages = React.useMemo(() => [...messages].reverse(), [messages]);
 
   const handleSendMessage = () => {
     if (messageInput.trim()) {
       const time = new Date().toISOString();
       addMessage(chatId, messageInput.trim(), true, time);
-      // Mesajları tekrar yükle
-      const msgs = getMessagesForChat(chatId).map((m: any) => {
-        let formattedTime = m.time;
-        if (m.time) {
-          const parsed = Date.parse(m.time);
-          if (!isNaN(parsed)) {
-            const d = new Date(parsed);
-            formattedTime = format(d, 'dd.MM.yy HH:mm', { locale: tr });
-          }
-        }
-        return {
-          id: m.id.toString(),
-          text: m.text,
-          isMine: !!m.isMine,
-          time: formattedTime,
-        };
-      });
-      setMessages(msgs);
+      loadMessages();
       setMessageInput('');
     }
+  };
+
+  const handleLongPressMessage = (messageId: string) => {
+    Alert.alert(
+      'Mesajı Sil',
+      'Bu mesajı silmek istediğinize emin misiniz?',
+      [
+        { text: 'İptal', style: 'cancel' },
+        {
+          text: 'Sil',
+          style: 'destructive',
+          onPress: () => {
+            deleteMessage(Number(messageId));
+            loadMessages();
+          },
+        },
+      ]
+    );
   };
 
   return (
@@ -79,7 +84,11 @@ export default function ChatDetailScreen() {
       <FlatList
         data={reversedMessages}
         keyExtractor={(item) => item.id}
-        renderItem={({ item }) => <MessageBubble message={item} />}
+        renderItem={({ item }) => (
+          <TouchableOpacity onLongPress={() => handleLongPressMessage(item.id)} activeOpacity={0.8}>
+            <MessageBubble message={item} />
+          </TouchableOpacity>
+        )}
         contentContainerStyle={styles.messageListContent}
         inverted={true}
       />

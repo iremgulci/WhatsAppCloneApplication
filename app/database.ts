@@ -150,4 +150,8 @@ export const clearMessages = () => {
   db.runSync('DELETE FROM messages;');
 };
 
+export const deleteMessage = (messageId: number) => {
+  db.runSync('DELETE FROM messages WHERE id = ?;', [messageId]);
+};
+
 export default db;
