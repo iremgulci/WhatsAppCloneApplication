@@ -22,9 +22,12 @@ export default function ChatDetailScreen() {
   const params = useLocalSearchParams();
   const chatId = Number(params.chatId); // chatId artık sayı
 
+  // Mesaj giriş kutusu için state
   const [messageInput, setMessageInput] = React.useState('');
+  // Bu chat'e ait mesajlar
   const [messages, setMessages] = React.useState<Message[]>([]);
 
+  // Mesajları veritabanından yükler ve state'e aktarır
   const loadMessages = React.useCallback(() => {
     const msgs = getMessagesForChat(chatId).map((m: any) => {
       let formattedTime = m.time;
@@ -45,15 +48,19 @@ export default function ChatDetailScreen() {
     setMessages(msgs);
   }, [chatId]);
 
+  // Ekran açıldığında ve chatId değiştiğinde mesajları yükle
   React.useEffect(() => {
     setupMessagesTable();
     loadMessages();
   }, [chatId, loadMessages]);
 
+  // Mesajları FlatList'te sondan başa göstermek için ters çevir
   const reversedMessages = React.useMemo(() => [...messages].reverse(), [messages]);
 
+  // Mesaj gönderme fonksiyonu
   const handleSendMessage = () => {
     if (messageInput.trim()) {
+      // Mesajı ISO formatında zamanla kaydet
       const time = new Date().toISOString();
       addMessage(chatId, messageInput.trim(), true, time);
       loadMessages();
@@ -61,6 +68,7 @@ export default function ChatDetailScreen() {
     }
   };
 
+  // Mesaj balonuna uzun basınca silme onayı gösterir
   const handleLongPressMessage = (messageId: string) => {
     Alert.alert(
       'Mesajı Sil',
@@ -81,10 +89,12 @@ export default function ChatDetailScreen() {
 
   return (
     <SafeAreaView style={styles.chatDetailContainer}>
+      {/* Mesajlar listesi (FlatList ile) */}
       <FlatList
         data={reversedMessages}
         keyExtractor={(item) => item.id}
         renderItem={({ item }) => (
+          // Mesaj balonuna uzun basınca silme seçeneği sun
           <TouchableOpacity onLongPress={() => handleLongPressMessage(item.id)} activeOpacity={0.8}>
             <MessageBubble message={item} />
           </TouchableOpacity>
@@ -93,6 +103,7 @@ export default function ChatDetailScreen() {
         inverted={true}
       />
 
+      {/* Mesaj yazma ve gönderme alanı */}
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
@@ -116,6 +127,7 @@ export default function ChatDetailScreen() {
   );
 }
 
+// Ekran ve mesaj balonları için stiller
 const styles = StyleSheet.create({
   chatDetailContainer: {
     flex: 1,

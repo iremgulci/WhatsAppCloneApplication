@@ -8,6 +8,7 @@ import ChatListItem, { Chat } from '../../components/ChatListItem';
 import { GlobalStyles } from '../../components/SharedStyles';
 import { addChat, getChats, getMessagesForChat, setupDatabase } from '../database';
 
+// Örnek kişiler listesi (yeni sohbet başlatmak için)
 const CONTACTS = [
   { id: '101', name: 'Zeynep Kaya', avatar: 'https://randomuser.me/api/portraits/women/3.jpg' },
   { id: '102', name: 'Ali Can', avatar: 'https://randomuser.me/api/portraits/men/4.jpg' },
@@ -21,9 +22,12 @@ const CONTACTS = [
 
 export default function ChatsScreen() {
   const router = useRouter();
+  // Sohbetler state'i
   const [chats, setChats] = React.useState<Chat[]>([]);
+  // Kişi seçme modalı açık mı?
   const [modalVisible, setModalVisible] = React.useState(false);
 
+  // Chat listesini günceller: Her chat için son mesajı ve zamanı bulur, mesajı olmayanları filtreler ve en günceli en üste sıralar
   const reloadChats = () => {
     const chatsWithLastMessage = getChats().map((chat: any) => {
       const messages = getMessagesForChat(Number(chat.id));
@@ -46,15 +50,17 @@ export default function ChatsScreen() {
             now.getMonth() === msgDate.getMonth() &&
             now.getFullYear() === msgDate.getFullYear()
           ) {
+            // Bugünkü mesajsa sadece saat göster
             lastTime = format(msgDate, 'HH:mm', { locale: tr });
           } else {
+            // Eski mesajsa tarih göster
             lastTime = format(msgDate, 'dd/MM/yyyy', { locale: tr });
           }
         }
       }
       return { ...chat, lastMessage, time: lastTime, hasMessages: messages.length > 0 };
     });
-    // Sadece mesajı olan chatleri göster ve son mesaj zamanına göre sırala
+    // Sadece mesajı olan chatleri göster ve son mesaj zamanına göre sırala (en güncel en üstte)
     const sortedChats = chatsWithLastMessage
       .filter(c => c.hasMessages)
       .sort((a, b) => {
@@ -67,6 +73,7 @@ export default function ChatsScreen() {
     setChats(sortedChats);
   };
 
+  // Uygulama ilk açıldığında örnek chatleri ekle ve chat listesini yükle
   React.useEffect(() => {
     setupDatabase();
     const chatsFromDb = getChats();
@@ -81,12 +88,14 @@ export default function ChatsScreen() {
     reloadChats();
   }, []);
 
+  // Ekrana her dönüldüğünde chat listesini otomatik güncelle (canlılık için)
   useFocusEffect(
     React.useCallback(() => {
       reloadChats();
     }, [])
   );
 
+  // Bir chat'e tıklanınca detay ekranına yönlendir
   const handleChatPress = (chat: Chat) => {
     router.push({
       pathname: '/chats/[chatId]',
@@ -98,7 +107,9 @@ export default function ChatsScreen() {
     });
   };
 
+  // Yeni sohbet başlatmak için kişi seçildiğinde çalışır
   const handleStartChat = (contact: { id: string; name: string; avatar: string }) => {
+    // Eğer bu kişiyle chat yoksa yeni chat ekle
     let chat = chats.find(c => c.name === contact.name);
     if (!chat) {
       addChat(contact.name, 'Son Mesaj Yok', '', contact.avatar);
@@ -108,7 +119,8 @@ export default function ChatsScreen() {
       reloadChats();
     }
     setModalVisible(false);
-    setTimeout(() => reloadChats(), 500);
+    setTimeout(() => reloadChats(), 500); // Modal kapandıktan sonra tekrar yükle
+    // chat bulunduysa detay ekranına yönlendir
     if (chat) {
       handleChatPress({
         id: chat.id,
@@ -122,14 +134,17 @@ export default function ChatsScreen() {
 
   return (
     <View style={GlobalStyles.screenContainer}>
+      {/* Chat listesi */}
       <FlatList
         data={chats}
         keyExtractor={(item) => item.id.toString()}
         renderItem={({ item }) => <ChatListItem chat={item} onPress={() => handleChatPress(item)} />}
       />
+      {/* Sağ altta yeni sohbet başlatma butonu (FAB) */}
       <TouchableOpacity style={styles.fab} onPress={() => setModalVisible(true)}>
         <Ionicons name="chatbubble-ellipses" size={28} color="white" />
       </TouchableOpacity>
+      {/* Kişi seçme modalı */}
       <Modal visible={modalVisible} animationType="slide" transparent>
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
@@ -156,6 +171,7 @@ export default function ChatsScreen() {
   );
 }
 
+// Stiller
 const styles = StyleSheet.create({
   newChatButton: {
     backgroundColor: '#25D366',

@@ -1,3 +1,4 @@
+// Arama geçmişi ekranı: Kullanıcıya yapılan/giden çağrıları listeler
 import { Ionicons } from '@expo/vector-icons';
 import * as React from 'react';
 import { FlatList, Image, StyleSheet, Text, View } from 'react-native';
@@ -11,6 +12,7 @@ const avatarMap: Record<string, string> = {
   'Zeynep Kaya': 'https://randomuser.me/api/portraits/women/3.jpg',
 };
 
+// Çağrı tipine göre ikon döndüren yardımcı fonksiyon
 const typeIcon = (type: string) => {
   if (type === 'incoming') return <Ionicons name="call" size={20} color={Colors.whatsappLightGreen} style={styles.icon} />;
   if (type === 'outgoing') return <Ionicons name="call-outline" size={20} color={Colors.blueTick} style={styles.icon} />;
@@ -18,24 +20,29 @@ const typeIcon = (type: string) => {
   return null;
 };
 
+// Ana arama geçmişi ekranı bileşeni
 export default function CallsScreen() {
-  const [calls, setCalls] = React.useState<any[]>([]);
+  const [calls, setCalls] = React.useState<any[]>([]); // Çağrı listesini tutan state
 
+  // Bileşen yüklendiğinde veritabanını hazırla ve çağrıları çek
   React.useEffect(() => {
-    setupDatabase();
-    const callsFromDb = getCalls();
+    setupDatabase(); // Veritabanı tablolarını oluşturur (eğer yoksa)
+    const callsFromDb = getCalls(); // Veritabanından çağrıları al
     if (callsFromDb.length === 0) {
+      // Eğer hiç çağrı yoksa örnek veriler ekle
       addCall('Ayşe Yılmaz', '10:30', 'incoming');
       addCall('Mehmet Demir', 'Dün', 'outgoing');
       addCall('Zeynep Kaya', 'Cuma', 'missed');
-      setCalls(getCalls());
+      setCalls(getCalls()); // Ekledikten sonra tekrar çağrıları al
     } else {
-      setCalls(callsFromDb);
+      setCalls(callsFromDb); // Varsa doğrudan göster
     }
   }, []);
 
+  // Her bir çağrı kartını render eden fonksiyon
   const renderItem = ({ item }: { item: any }) => (
     <View style={styles.callCard}>
+      {/* Avatar resmi, yoksa lego avatarı */}
       <Image
         source={{ uri: avatarMap[item.name] || 'https://randomuser.me/api/portraits/lego/1.jpg' }}
         style={styles.avatar}
@@ -44,6 +51,7 @@ export default function CallsScreen() {
         <Text style={styles.name}>{item.name}</Text>
         <View style={styles.row}>
           {typeIcon(item.type)}
+          {/* Çağrı tipi ve zamanı */}
           <Text style={[styles.type, item.type === 'missed' && styles.missedType]}>{item.type}</Text>
           <Text style={styles.time}>{item.time}</Text>
         </View>
@@ -53,6 +61,7 @@ export default function CallsScreen() {
 
   return (
     <View style={GlobalStyles.screenContainer}>
+      {/* Çağrı listesini yatay ayraçlarla gösteren FlatList */}
       <FlatList
         data={calls}
         keyExtractor={(item) => item.id.toString()}
@@ -64,10 +73,13 @@ export default function CallsScreen() {
   );
 }
 
+// Stiller: Ekrandaki her bölüm için özel stiller
 const styles = StyleSheet.create({
+  // Liste içeriği için padding
   listContent: {
     padding: 16,
   },
+  // Her bir çağrı kartı
   callCard: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -80,6 +92,7 @@ const styles = StyleSheet.create({
     shadowRadius: 2,
     elevation: 2,
   },
+  // Avatar resmi
   avatar: {
     width: 48,
     height: 48,
@@ -87,33 +100,40 @@ const styles = StyleSheet.create({
     marginRight: 14,
     backgroundColor: Colors.inputBorder,
   },
+  // Bilgi konteyneri (isim, tip, saat)
   infoContainer: {
     flex: 1,
     justifyContent: 'center',
   },
+  // Kullanıcı adı
   name: {
     fontSize: 17,
     fontWeight: 'bold',
     color: Colors.textPrimary,
     marginBottom: 4,
   },
+  // Tip ve saat satırı
   row: {
     flexDirection: 'row',
     alignItems: 'center',
   },
+  // Tip ikonunun sağında boşluk
   icon: {
     marginRight: 6,
   },
+  // Çağrı tipi metni
   type: {
     fontSize: 14,
     color: Colors.whatsappLightGreen,
     marginRight: 12,
     textTransform: 'capitalize',
   },
+  // Kaçırılan çağrı tipi için kırmızı ve kalın
   missedType: {
     color: Colors.errorRed,
     fontWeight: 'bold',
   },
+  // Saat metni
   time: {
     fontSize: 13,
     color: Colors.chatTime,
