@@ -3,10 +3,10 @@ import { format } from 'date-fns';
 import { tr } from 'date-fns/locale';
 import { useFocusEffect, useRouter } from 'expo-router';
 import * as React from 'react';
-import { FlatList, Modal, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Alert, FlatList, Modal, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import ChatListItem, { Chat } from '../../components/ChatListItem';
 import { GlobalStyles } from '../../components/SharedStyles';
-import { addChat, getChats, getMessagesForChat, setupDatabase } from '../database';
+import { addChat, deleteChat, getChats, getMessagesForChat, setupDatabase } from '../database';
 
 // Örnek kişiler listesi (yeni sohbet başlatmak için)
 const CONTACTS = [
@@ -107,6 +107,25 @@ export default function ChatsScreen() {
     });
   };
 
+  // Bir chat'e uzun basınca silme onayı gösterir
+  const handleLongPressChat = (chat: Chat) => {
+    Alert.alert(
+      'Sohbeti Sil',
+      `${chat.name} ile olan sohbeti silmek istediğinize emin misiniz?`,
+      [
+        { text: 'İptal', style: 'cancel' },
+        {
+          text: 'Sil',
+          style: 'destructive',
+          onPress: () => {
+            deleteChat(Number(chat.id));
+            reloadChats();
+          },
+        },
+      ]
+    );
+  };
+
   // Yeni sohbet başlatmak için kişi seçildiğinde çalışır
   const handleStartChat = (contact: { id: string; name: string; avatar: string }) => {
     // Eğer bu kişiyle chat yoksa yeni chat ekle
@@ -138,7 +157,13 @@ export default function ChatsScreen() {
       <FlatList
         data={chats}
         keyExtractor={(item) => item.id.toString()}
-        renderItem={({ item }) => <ChatListItem chat={item} onPress={() => handleChatPress(item)} />}
+        renderItem={({ item }) => (
+          <ChatListItem
+            chat={item}
+            onPress={() => handleChatPress(item)}
+            onLongPress={() => handleLongPressChat(item)}
+          />
+        )}
       />
       {/* Sağ altta yeni sohbet başlatma butonu (FAB) */}
       <TouchableOpacity style={styles.fab} onPress={() => setModalVisible(true)}>

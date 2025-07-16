@@ -154,4 +154,9 @@ export const deleteMessage = (messageId: number) => {
   db.runSync('DELETE FROM messages WHERE id = ?;', [messageId]);
 };
 
+export const deleteChat = (chatId: number) => {
+  db.runSync('DELETE FROM chats WHERE id = ?;', [chatId]);
+  db.runSync('DELETE FROM messages WHERE chatId = ?;', [chatId]);
+};
+
 export default db;

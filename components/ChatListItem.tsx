@@ -16,6 +16,7 @@ export interface Chat { // Export ettik, çünkü başka dosyalarda da kullanaca
 type ChatListItemProps = {
   chat: Chat;
   onPress: () => void; // onPress prop'u ekledik
+  onLongPress?: () => void; // onLongPress prop'u ekliyoruz
 };
 
 // Ana Stack Navigator için rota listesi (Bu tanım her yerde aynı olmalı!)
@@ -27,7 +28,7 @@ type RootStackParamList = {
 // ChatsScreen içinde useNavigation hook'u için tip
 type ChatsScreenNavigationProp = NavigationProp<RootStackParamList, 'ChatsList'>;
 
-const ChatListItem: React.FC<ChatListItemProps> = ({ chat }) => {
+const ChatListItem: React.FC<ChatListItemProps> = ({ chat, onPress, onLongPress }) => {
   const navigation = useNavigation<ChatsScreenNavigationProp>();
 
 const router = useRouter();
@@ -36,11 +37,11 @@ const handlePress = () => {
 };
 
   return (
-    <TouchableOpacity style={styles.chatListItem} onPress={handlePress}>
+    <TouchableOpacity style={styles.chatListItem} onPress={onPress} onLongPress={onLongPress}>
       <Image source={{ uri: chat.avatar }} style={styles.avatar} />
       <View style={styles.chatDetails}>
         <Text style={styles.chatName}>{chat.name}</Text>
-        <Text style={styles.lastMessage}numberOfLines={1}>{chat.lastMessage}</Text>
+        <Text style={styles.lastMessage} numberOfLines={1}>{chat.lastMessage}</Text>
       </View>
       <Text style={styles.chatTime}>{chat.time}</Text>
     </TouchableOpacity>

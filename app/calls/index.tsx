@@ -52,7 +52,7 @@ export default function CallsScreen() {
         <View style={styles.row}>
           {typeIcon(item.type)}
           {/* Çağrı tipi ve zamanı */}
-          <Text style={[styles.type, item.type === 'missed' && styles.missedType]}>{item.type}</Text>
+          <Text style={[styles.type, item.type === 'missed' ? styles.missedType : null]}>{item.type}</Text>
           <Text style={styles.time}>{item.time}</Text>
         </View>
       </View>
