@@ -14,20 +14,19 @@ import {
   TouchableOpacity,
   View
 } from 'react-native';
+import AudioRecorder from '../../components/AudioRecorder';
 import MessageBubble, { Message } from '../../components/MessageBubble';
 import { Colors } from '../../components/SharedStyles';
 import { addMessage, deleteMessage, getMessagesForChat, setupMessagesTable } from '../database';
 
 export default function ChatDetailScreen() {
   const params = useLocalSearchParams();
-  const chatId = Number(params.chatId); // chatId artık sayı
+  const chatId = Number(params.chatId);
 
-  // Mesaj giriş kutusu için state
   const [messageInput, setMessageInput] = React.useState('');
-  // Bu chat'e ait mesajlar
   const [messages, setMessages] = React.useState<Message[]>([]);
+  const [showAudioRecorder, setShowAudioRecorder] = React.useState(false);
 
-  // Mesajları veritabanından yükler ve state'e aktarır
   const loadMessages = React.useCallback(() => {
     const msgs = getMessagesForChat(chatId).map((m: any) => {
       let formattedTime = m.time;
@@ -43,32 +42,50 @@ export default function ChatDetailScreen() {
         text: m.text,
         isMine: !!m.isMine,
         time: formattedTime,
+        type: m.type || 'text',
+        audioUri: m.audioUri,
+        audioDuration: m.audioDuration,
       };
     });
     setMessages(msgs);
   }, [chatId]);
 
-  // Ekran açıldığında ve chatId değiştiğinde mesajları yükle
   React.useEffect(() => {
     setupMessagesTable();
     loadMessages();
   }, [chatId, loadMessages]);
 
-  // Mesajları FlatList'te sondan başa göstermek için ters çevir
   const reversedMessages = React.useMemo(() => [...messages].reverse(), [messages]);
 
-  // Mesaj gönderme fonksiyonu
   const handleSendMessage = () => {
     if (messageInput.trim()) {
-      // Mesajı ISO formatında zamanla kaydet
       const time = new Date().toISOString();
-      addMessage(chatId, messageInput.trim(), true, time);
+      addMessage(chatId, messageInput.trim(), true, time, 'text');
       loadMessages();
       setMessageInput('');
     }
   };
 
-  // Mesaj balonuna uzun basınca silme onayı gösterir
+  const handleAudioRecordingComplete = (uri: string, duration: number) => {
+    console.log('Audio recording completed:', { uri, duration });
+    
+    try {
+      const time = new Date().toISOString();
+      addMessage(chatId, 'Ses kaydı', true, time, 'audio', uri, duration);
+      loadMessages();
+      setShowAudioRecorder(false);
+      
+      console.log('Audio message added successfully');
+    } catch (error) {
+      console.log('Error adding audio message:', error);
+      Alert.alert('Hata', 'Ses kaydı gönderilemedi. Lütfen tekrar deneyin.');
+    }
+  };
+
+  const handleAudioRecordingCancel = () => {
+    setShowAudioRecorder(false);
+  };
+
   const handleLongPressMessage = (messageId: string) => {
     Alert.alert(
       'Mesajı Sil',
@@ -87,14 +104,16 @@ export default function ChatDetailScreen() {
     );
   };
 
+  const toggleAudioRecorder = () => {
+    setShowAudioRecorder(!showAudioRecorder);
+  };
+
   return (
     <SafeAreaView style={styles.chatDetailContainer}>
-      {/* Mesajlar listesi (FlatList ile) */}
       <FlatList
         data={reversedMessages}
         keyExtractor={(item) => item.id}
         renderItem={({ item }) => (
-          // Mesaj balonuna uzun basınca silme seçeneği sun
           <TouchableOpacity onLongPress={() => handleLongPressMessage(item.id)} activeOpacity={0.8}>
             <MessageBubble message={item} />
           </TouchableOpacity>
@@ -103,31 +122,41 @@ export default function ChatDetailScreen() {
         inverted={true}
       />
 
-      {/* Mesaj yazma ve gönderme alanı */}
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
         style={styles.messageInputContainerWrapper}
       >
-        <View style={styles.messageInputContainer}>
-          <TextInput
-            style={styles.textInput}
-            placeholder="Mesaj yazın"
-            placeholderTextColor="#667781"
-            value={messageInput}
-            onChangeText={setMessageInput}
-            multiline
+        {showAudioRecorder ? (
+          <AudioRecorder
+            onRecordingComplete={handleAudioRecordingComplete}
+            onCancel={handleAudioRecordingCancel}
           />
-          <TouchableOpacity onPress={handleSendMessage} style={styles.sendButton}>
-            <Ionicons name="send" size={24} color="white" />
-          </TouchableOpacity>
-        </View>
+        ) : (
+          <View style={styles.messageInputContainer}>
+            <TouchableOpacity onPress={toggleAudioRecorder} style={styles.micButton}>
+              <Ionicons name="mic" size={24} color={Colors.whatsappLightGreen} />
+            </TouchableOpacity>
+            
+            <TextInput
+              style={styles.textInput}
+              placeholder="Mesaj yazın"
+              placeholderTextColor="#667781"
+              value={messageInput}
+              onChangeText={setMessageInput}
+              multiline
+            />
+            
+            <TouchableOpacity onPress={handleSendMessage} style={styles.sendButton}>
+              <Ionicons name="send" size={24} color="white" />
+            </TouchableOpacity>
+          </View>
+        )}
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }
 
-// Ekran ve mesaj balonları için stiller
 const styles = StyleSheet.create({
   chatDetailContainer: {
     flex: 1,
@@ -160,6 +189,14 @@ const styles = StyleSheet.create({
     color: Colors.textPrimary,
     paddingVertical: 8,
     maxHeight: 100,
+  },
+  micButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 10,
   },
   sendButton: {
     backgroundColor: Colors.whatsappLightGreen,

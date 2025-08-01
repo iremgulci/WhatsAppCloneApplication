@@ -124,6 +124,7 @@ export const getUpdates = (): any[] => {
 
 // Messages tablosu ve fonksiyonları
 export const setupMessagesTable = () => {
+  // Önce tabloyu oluştur (eğer yoksa)
   db.execSync(`
     CREATE TABLE IF NOT EXISTS messages (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -133,13 +134,49 @@ export const setupMessagesTable = () => {
       time TEXT
     );
   `);
+  
+  // Eksik sütunları kontrol et ve ekle
+  try {
+    // type sütunu ekle
+    db.execSync('ALTER TABLE messages ADD COLUMN type TEXT DEFAULT "text";');
+    console.log('Added type column to messages table');
+  } catch (error) {
+    console.log('type column already exists or error:', error);
+  }
+  
+  try {
+    // audioUri sütunu ekle
+    db.execSync('ALTER TABLE messages ADD COLUMN audioUri TEXT;');
+    console.log('Added audioUri column to messages table');
+  } catch (error) {
+    console.log('audioUri column already exists or error:', error);
+  }
+  
+  try {
+    // audioDuration sütunu ekle
+    db.execSync('ALTER TABLE messages ADD COLUMN audioDuration INTEGER;');
+    console.log('Added audioDuration column to messages table');
+  } catch (error) {
+    console.log('audioDuration column already exists or error:', error);
+  }
+  
+  console.log('Messages table schema updated successfully');
 };
 
-export const addMessage = (chatId: number, text: string, isMine: boolean, time: string) => {
-  db.runSync(
-    'INSERT INTO messages (chatId, text, isMine, time) VALUES (?, ?, ?, ?);',
-    [chatId, text, isMine ? 1 : 0, time]
-  );
+export const addMessage = (chatId: number, text: string, isMine: boolean, time: string, type: string = 'text', audioUri?: string, audioDuration?: number) => {
+  try {
+    console.log('Adding message to database:', { chatId, text, isMine, time, type, audioUri, audioDuration });
+    
+    db.runSync(
+      'INSERT INTO messages (chatId, text, isMine, time, type, audioUri, audioDuration) VALUES (?, ?, ?, ?, ?, ?, ?);',
+      [chatId, text, isMine ? 1 : 0, time, type, audioUri || null, audioDuration || null]
+    );
+    
+    console.log('Message added successfully to database');
+  } catch (error) {
+    console.log('Database error adding message:', error);
+    throw error;
+  }
 };
 
 export const getMessagesForChat = (chatId: number): any[] => {
