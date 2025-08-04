@@ -3,10 +3,9 @@ import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { useRouter } from 'expo-router'; // useRouter'ı import ediyoruz
 import * as React from 'react';
 import { Platform, SafeAreaView, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { Colors, GlobalStyles } from '../components/SharedStyles';
-
-// Ekran Bileşenlerini import ediyoruz
 import { setupUserTable } from '../app/database';
+import { Colors, GlobalStyles } from '../components/SharedStyles';
+// Ekran Bileşenlerini import ediyoruz
 import LoginScreen from '../components/LoginScreen';
 import RegisterScreen from '../components/RegisterScreen';
 import CallsScreen from './calls';
@@ -54,6 +53,8 @@ export default function AppTabs() {
     <View style={styles.modalOverlay}>
       <View style={styles.modalContent}>
         <Text style={styles.modalTitle}>Hesap Bilgileri</Text>
+        <Text style={styles.modalLabel}>Kullanıcı Adı:</Text>
+        <Text style={styles.modalValue}>{user?.username}</Text>
         <Text style={styles.modalLabel}>Email:</Text>
         <Text style={styles.modalValue}>{user?.email}</Text>
         <View style={styles.modalButtonContainer}>

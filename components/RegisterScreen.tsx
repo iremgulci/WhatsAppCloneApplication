@@ -9,26 +9,35 @@ type RegisterScreenProps = {
 };
 
 export default function RegisterScreen({ onRegister, onNavigateToLogin }: RegisterScreenProps) {
+  const [username, setUsername] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
 
   const handleRegister = async () => {
     try {
-      const user = await registerUser(email, password);
+      const user = await registerUser(username, email, password);
       if (user) {
         onRegister(user);
       } else {
-        setError('Kayıt başarısız. Email zaten kullanılıyor olabilir.');
+        setError('Kayıt başarısız. Kullanıcı adı veya email zaten kullanılıyor olabilir.');
       }
-    } catch (e) {
-      setError('Bir hata oluştu.');
+    } catch (e: any) {
+      setError('Bir hata oluştu: ' + (e?.message || JSON.stringify(e)));
     }
   };
 
   return (
     <View style={[GlobalStyles.screenContainer, styles.container]}>
       <Text style={styles.title}>Kayıt Ol</Text>
+      <TextInput
+        style={styles.input}
+        placeholder="Kullanıcı Adı"
+        value={username}
+        onChangeText={setUsername}
+        autoCapitalize="none"
+        placeholderTextColor={Colors.chatTime}
+      />
       <TextInput
         style={styles.input}
         placeholder="Email"

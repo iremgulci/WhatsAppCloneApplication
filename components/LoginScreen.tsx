@@ -9,13 +9,13 @@ type LoginScreenProps = {
 };
 
 export default function LoginScreen({ onLogin, onNavigateToRegister }: LoginScreenProps) {
-  const [email, setEmail] = useState('');
+  const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
 
   const handleLogin = async () => {
     try {
-      const user = await loginUser(email, password);
+      const user = await loginUser(username, password);
       if (user) {
         onLogin(user);
       } else {
@@ -31,9 +31,9 @@ export default function LoginScreen({ onLogin, onNavigateToRegister }: LoginScre
       <Text style={styles.title}>Giriş Yap</Text>
       <TextInput
         style={styles.input}
-        placeholder="Email"
-        value={email}
-        onChangeText={setEmail}
+        placeholder="Kullanıcı Adı"
+        value={username}
+        onChangeText={setUsername}
         autoCapitalize="none"
         placeholderTextColor={Colors.chatTime}
       />

@@ -23,6 +23,9 @@ import MessageBubble, { Message } from '../../components/MessageBubble'; // Mesa
 import { Colors } from '../../components/SharedStyles'; // Paylaşılan renkler
 import { addMessage, deleteMessage, getMessagesForChat, setupMessagesTable } from '../database'; // Veritabanı işlemleri
 
+// WebSocket sunucu adresi
+const WS_URL = 'ws://192.168.60.14:8080'; // Bilgisayarınızın IP adresini girin
+
 // Chat detay ekranı bileşeni
 export default function ChatDetailScreen() {
   // URL'den chat ID'sini al
@@ -34,6 +37,8 @@ export default function ChatDetailScreen() {
   const [messages, setMessages] = React.useState<Message[]>([]); // Mesajlar listesi
   const [showAudioRecorder, setShowAudioRecorder] = React.useState(false); // Ses kayıt görünürlüğü
   const [showAttachmentMenu, setShowAttachmentMenu] = React.useState(false); // Dosya ekleme menüsü görünürlüğü
+  const [ws, setWs] = React.useState<WebSocket | null>(null); // WebSocket bağlantısı
+  const [userId, setUserId] = React.useState<string>('user1'); // Her emülatörde farklı olmalı!
 
   // Mesajları yükleme fonksiyonu
   const loadMessages = React.useCallback(() => {
@@ -70,7 +75,30 @@ export default function ChatDetailScreen() {
   React.useEffect(() => {
     setupMessagesTable(); // Veritabanı tablosunu hazırla
     loadMessages(); // Mesajları yükle
-  }, [chatId, loadMessages]);
+
+    // WebSocket bağlantısını başlat
+    if (!userId) return;
+    const socket = new WebSocket(WS_URL);
+    socket.onopen = () => {
+      socket.send(JSON.stringify({ type: 'login', userId }));
+    };
+    socket.onmessage = (event) => {
+      try {
+        const data = JSON.parse(event.data);
+        if (data.message) {
+          const time = new Date().toISOString();
+          addMessage(chatId, data.message, false, time, 'text');
+          loadMessages();
+        }
+      } catch (err) {
+        console.log('WebSocket message error:', err);
+      }
+    };
+    setWs(socket);
+    return () => {
+      socket.close();
+    };
+  }, [userId, chatId, loadMessages]);
 
   // Mesajları ters çevir (en yeni mesajlar altta görünsün)
   const reversedMessages = React.useMemo(() => [...messages].reverse(), [messages]);
@@ -82,6 +110,17 @@ export default function ChatDetailScreen() {
       addMessage(chatId, messageInput.trim(), true, time, 'text'); // Veritabanına mesaj ekle
       loadMessages(); // Mesajları yeniden yükle
       setMessageInput(''); // Input'u temizle
+      // WebSocket ile mesajı gönder
+      if (ws && ws.readyState === WebSocket.OPEN) {
+        ws.send(
+          JSON.stringify({
+            type: 'message',
+            from: userId,
+            to: 'user2', // Hedef kullanıcı ID'si (her emülatörde farklı olmalı)
+            message: messageInput.trim(),
+          })
+        );
+      }
     }
   };
 

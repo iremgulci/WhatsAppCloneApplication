@@ -4,11 +4,29 @@ import * as SQLite from 'expo-sqlite';
 
 const db = SQLite.openDatabaseSync('whatsappclone.db');
 
+
+// Tüm kullanıcıları sil
+export const clearUsers = () => {
+  db.runSync('DELETE FROM users;');
+};
 // Kullanıcı tablosu oluştur
+// Kullanıcı tablosunu tamamen sıfırla (DROP ve CREATE)
+export const dropAndRecreateUserTable = () => {
+  db.runSync('DROP TABLE IF EXISTS users;');
+  db.runSync(`
+    CREATE TABLE IF NOT EXISTS users (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      username TEXT UNIQUE,
+      email TEXT UNIQUE,
+      password TEXT
+    );
+  `);
+};
 export const setupUserTable = () => {
   db.execSync(`
     CREATE TABLE IF NOT EXISTS users (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
+      username TEXT UNIQUE,
       email TEXT UNIQUE,
       password TEXT
     );
@@ -16,22 +34,22 @@ export const setupUserTable = () => {
 };
 
 // Kullanıcı kaydı
-export const registerUser = (email: string, password: string): Promise<any> => {
+export const registerUser = (username: string, email: string, password: string): Promise<any> => {
   return new Promise((resolve, reject) => {
     try {
-      db.runSync('INSERT INTO users (email, password) VALUES (?, ?);', [email, password]);
-      const users = db.getAllSync('SELECT * FROM users WHERE email = ?;', [email]);
+      db.runSync('INSERT INTO users (username, email, password) VALUES (?, ?, ?);', [username, email, password]);
+      const users = db.getAllSync('SELECT * FROM users WHERE username = ?;', [username]);
       resolve(users[0] || null);
     } catch (error) {
-      resolve(null); // Email zaten varsa hata döndür
+      resolve(null); // Username veya email zaten varsa hata döndür
     }
   });
 };
 
 // Kullanıcı girişi
-export const loginUser = (email: string, password: string): Promise<any> => {
+export const loginUser = (username: string, password: string): Promise<any> => {
   return new Promise((resolve) => {
-    const users = db.getAllSync('SELECT * FROM users WHERE email = ? AND password = ?;', [email, password]);
+    const users = db.getAllSync('SELECT * FROM users WHERE username = ? AND password = ?;', [username, password]);
     resolve(users[0] || null);
   });
 };
