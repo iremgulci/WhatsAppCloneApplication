@@ -1,7 +1,40 @@
 // database.ts  
 import * as SQLite from 'expo-sqlite';
 
+
 const db = SQLite.openDatabaseSync('whatsappclone.db');
+
+// Kullanıcı tablosu oluştur
+export const setupUserTable = () => {
+  db.execSync(`
+    CREATE TABLE IF NOT EXISTS users (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      email TEXT UNIQUE,
+      password TEXT
+    );
+  `);
+};
+
+// Kullanıcı kaydı
+export const registerUser = (email: string, password: string): Promise<any> => {
+  return new Promise((resolve, reject) => {
+    try {
+      db.runSync('INSERT INTO users (email, password) VALUES (?, ?);', [email, password]);
+      const users = db.getAllSync('SELECT * FROM users WHERE email = ?;', [email]);
+      resolve(users[0] || null);
+    } catch (error) {
+      resolve(null); // Email zaten varsa hata döndür
+    }
+  });
+};
+
+// Kullanıcı girişi
+export const loginUser = (email: string, password: string): Promise<any> => {
+  return new Promise((resolve) => {
+    const users = db.getAllSync('SELECT * FROM users WHERE email = ? AND password = ?;', [email, password]);
+    resolve(users[0] || null);
+  });
+};
 
 // Tabloyu oluştur (ilk açılışta)
 export const setupDatabase = () => {
@@ -160,16 +193,40 @@ export const setupMessagesTable = () => {
     console.log('audioDuration column already exists or error:', error);
   }
   
+  try {
+    // fileUri sütunu ekle
+    db.execSync('ALTER TABLE messages ADD COLUMN fileUri TEXT;');
+    console.log('Added fileUri column to messages table');
+  } catch (error) {
+    console.log('fileUri column already exists or error:', error);
+  }
+  
+  try {
+    // fileName sütunu ekle
+    db.execSync('ALTER TABLE messages ADD COLUMN fileName TEXT;');
+    console.log('Added fileName column to messages table');
+  } catch (error) {
+    console.log('fileName column already exists or error:', error);
+  }
+  
+  try {
+    // fileSize sütunu ekle
+    db.execSync('ALTER TABLE messages ADD COLUMN fileSize INTEGER;');
+    console.log('Added fileSize column to messages table');
+  } catch (error) {
+    console.log('fileSize column already exists or error:', error);
+  }
+  
   console.log('Messages table schema updated successfully');
 };
 
-export const addMessage = (chatId: number, text: string, isMine: boolean, time: string, type: string = 'text', audioUri?: string, audioDuration?: number) => {
+export const addMessage = (chatId: number, text: string, isMine: boolean, time: string, type: string = 'text', audioUri?: string, audioDuration?: number, fileUri?: string, fileName?: string, fileSize?: number) => {
   try {
-    console.log('Adding message to database:', { chatId, text, isMine, time, type, audioUri, audioDuration });
+    console.log('Adding message to database:', { chatId, text, isMine, time, type, audioUri, audioDuration, fileUri, fileName, fileSize });
     
     db.runSync(
-      'INSERT INTO messages (chatId, text, isMine, time, type, audioUri, audioDuration) VALUES (?, ?, ?, ?, ?, ?, ?);',
-      [chatId, text, isMine ? 1 : 0, time, type, audioUri || null, audioDuration || null]
+      'INSERT INTO messages (chatId, text, isMine, time, type, audioUri, audioDuration, fileUri, fileName, fileSize) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?);',
+      [chatId, text, isMine ? 1 : 0, time, type, audioUri || null, audioDuration || null, fileUri || null, fileName || null, fileSize || null]
     );
     
     console.log('Message added successfully to database');
