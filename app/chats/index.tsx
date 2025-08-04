@@ -6,21 +6,24 @@ import * as React from 'react';
 import { Alert, FlatList, Modal, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import ChatListItem, { Chat } from '../../components/ChatListItem';
 import { GlobalStyles } from '../../components/SharedStyles';
-import { addChat, deleteChat, getChats, getMessagesForChat, setupDatabase } from '../database';
+import db, { addChat, deleteChat, getChats, getMessagesForChat, setupDatabase } from '../database';
 
-// Örnek kişiler listesi (yeni sohbet başlatmak için)
-const CONTACTS = [
-  { id: '101', name: 'Zeynep Kaya', avatar: 'https://randomuser.me/api/portraits/women/3.jpg' },
-  { id: '102', name: 'Ali Can', avatar: 'https://randomuser.me/api/portraits/men/4.jpg' },
-  { id: '103', name: 'Elif Su', avatar: 'https://randomuser.me/api/portraits/women/5.jpg' },
-  { id: '104', name: 'Burak Aslan', avatar: 'https://randomuser.me/api/portraits/men/6.jpg' },
-  { id: '105', name: 'Deniz Yıldız', avatar: 'https://randomuser.me/api/portraits/women/7.jpg' },
-  { id: '106', name: 'Mert Kılıç', avatar: 'https://randomuser.me/api/portraits/men/8.jpg' },
-  { id: '107', name: 'Selin Aksoy', avatar: 'https://randomuser.me/api/portraits/women/9.jpg' },
-  { id: '108', name: 'Baran Güneş', avatar: 'https://randomuser.me/api/portraits/men/10.jpg' },
-];
+// Veritabanındaki kayıtlı kullanıcıları göster
+function useRegisteredContacts(currentUserId: number) {
+  const [contacts, setContacts] = React.useState<any[]>([]);
+  React.useEffect(() => {
+    // Kendi hesabını listeden çıkar
+    const users = db.getAllSync('SELECT * FROM users ');
+    setContacts(users);
+  }, [currentUserId]);
+  return contacts;
+}
+interface ChatsScreenProps {
+  userId: number;
+}
 
-export default function ChatsScreen() {
+export default function ChatsScreen({ userId }: ChatsScreenProps) {
+  const contacts = useRegisteredContacts(userId);
   const router = useRouter();
   // Sohbetler state'i
   const [chats, setChats] = React.useState<Chat[]>([]);
@@ -78,12 +81,12 @@ export default function ChatsScreen() {
     setupDatabase();
     const chatsFromDb = getChats();
     if (chatsFromDb.length === 0) {
-      addChat('Ayşe Yılmaz', 'Son Mesaj Yok', '', 'https://randomuser.me/api/portraits/women/1.jpg');
-      addChat('Mehmet Demir', 'Son Mesaj Yok', '', 'https://randomuser.me/api/portraits/men/2.jpg');
-      addChat('Zeynep Kaya', 'Son Mesaj Yok', '', 'https://randomuser.me/api/portraits/women/3.jpg');
-      addChat('Ali Can', 'Son Mesaj Yok', '', 'https://randomuser.me/api/portraits/men/4.jpg');
-      addChat('Elif Su', 'Son Mesaj Yok', '', 'https://randomuser.me/api/portraits/women/5.jpg');
-      addChat('Burak Aslan', 'Son Mesaj Yok', '', 'https://randomuser.me/api/portraits/men/6.jpg');
+      addChat('Ayşe Yılmaz', 'Son Mesaj Yok', '', 'https://randomuser.me/api/portraits/women/1.jpg', 999);
+      addChat('Mehmet Demir', 'Son Mesaj Yok', '', 'https://randomuser.me/api/portraits/men/2.jpg', 998);
+      addChat('Zeynep Kaya', 'Son Mesaj Yok', '', 'https://randomuser.me/api/portraits/women/3.jpg', 997);
+      addChat('Ali Can', 'Son Mesaj Yok', '', 'https://randomuser.me/api/portraits/men/4.jpg', 996);
+      addChat('Elif Su', 'Son Mesaj Yok', '', 'https://randomuser.me/api/portraits/women/5.jpg', 995);
+      addChat('Burak Aslan', 'Son Mesaj Yok', '', 'https://randomuser.me/api/portraits/men/6.jpg', 994);
     }
     reloadChats();
   }, []);
@@ -101,6 +104,7 @@ export default function ChatsScreen() {
       pathname: '/chats/[chatId]',
       params: {
         chatId: chat.id,
+        userId: chat.userId,
         chatName: chat.name,
         avatarUrl: chat.avatar,
       },
@@ -127,13 +131,13 @@ export default function ChatsScreen() {
   };
 
   // Yeni sohbet başlatmak için kişi seçildiğinde çalışır
-  const handleStartChat = (contact: { id: string; name: string; avatar: string }) => {
+  const handleStartChat = (contact: { id: string; userId: number; name: string; avatar: string }) => {
     // Eğer bu kişiyle chat yoksa yeni chat ekle
     let chat = chats.find(c => c.name === contact.name);
     if (!chat) {
-      addChat(contact.name, 'Son Mesaj Yok', '', contact.avatar);
+      addChat(contact.name, 'Son Mesaj Yok', '', contact.avatar, contact.userId);
       // Yeni eklenen chat'i veritabanından bul
-      const allChats = getChats();
+      const allChats = getChats(userId);
       chat = allChats.find(c => c.name === contact.name);
       reloadChats();
     }
@@ -143,6 +147,7 @@ export default function ChatsScreen() {
     if (chat) {
       handleChatPress({
         id: chat.id,
+        userId: contact.userId,
         name: contact.name,
         avatar: contact.avatar,
         lastMessage: '',
@@ -175,10 +180,10 @@ export default function ChatsScreen() {
           <View style={styles.modalContent}>
             <Text style={styles.modalTitle}>Kişi Seç</Text>
             <FlatList
-              data={CONTACTS}
-              keyExtractor={item => item.id}
+              data={contacts}
+              keyExtractor={item => item.userId.toString()}
               renderItem={({ item }) => (
-                <TouchableOpacity style={styles.contactItem} onPress={() => handleStartChat(item)}>
+                <TouchableOpacity style={styles.contactItem} onPress={() => handleStartChat({ id: item.id, userId: item.userId, name: item.name, avatar: '' })}>
                   <View style={styles.contactAvatar}>
                     <Text style={styles.contactAvatarText}>{item.name[0]}</Text>
                   </View>

@@ -7,6 +7,7 @@ import { Colors } from './SharedStyles'; // Stilleri import ediyoruz
 // Sohbet verisi için arayüz tanımlaması
 export interface Chat { // Export ettik, çünkü başka dosyalarda da kullanacağız
   id: string;
+  userId: number; // Kullanıcı ID'si ekledik
   name: string;
   lastMessage: string;
   time: string;

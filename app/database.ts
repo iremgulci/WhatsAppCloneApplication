@@ -15,9 +15,9 @@ export const dropAndRecreateUserTable = () => {
   db.runSync('DROP TABLE IF EXISTS users;');
   db.runSync(`
     CREATE TABLE IF NOT EXISTS users (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      userId INTEGER PRIMARY KEY AUTOINCREMENT,
       username TEXT UNIQUE,
-      email TEXT UNIQUE,
+      name TEXT,
       password TEXT
     );
   `);
@@ -27,21 +27,21 @@ export const setupUserTable = () => {
     CREATE TABLE IF NOT EXISTS users (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       username TEXT UNIQUE,
-      email TEXT UNIQUE,
+      name TEXT,
       password TEXT
     );
   `);
 };
 
 // Kullanıcı kaydı
-export const registerUser = (username: string, email: string, password: string): Promise<any> => {
+export const registerUser = (username: string, name: string, password: string): Promise<any> => {
   return new Promise((resolve, reject) => {
     try {
-      db.runSync('INSERT INTO users (username, email, password) VALUES (?, ?, ?);', [username, email, password]);
+      db.runSync('INSERT INTO users (username, name, password) VALUES (?, ?, ?);', [username, name, password]);
       const users = db.getAllSync('SELECT * FROM users WHERE username = ?;', [username]);
       resolve(users[0] || null);
     } catch (error) {
-      resolve(null); // Username veya email zaten varsa hata döndür
+      resolve(null); // Username zaten varsa hata döndür
     }
   });
 };
@@ -59,10 +59,12 @@ export const setupDatabase = () => {
     db.execSync(`
       CREATE TABLE IF NOT EXISTS chats (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
+        userId INTEGER,
         name TEXT,
         lastMessage TEXT,
         time TEXT,
-        avatar TEXT
+        avatar TEXT,
+        userId INTEGER
       );
       CREATE TABLE IF NOT EXISTS calls (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -88,10 +90,10 @@ export const setupDatabase = () => {
   };
 
 // Chat ekleme
-export const addChat = (name: string, lastMessage: string, time: string, avatar: string) => {
+export const addChat = (name: string, lastMessage: string, time: string, avatar: string, userId: number) => {
   db.runSync(
-    'INSERT INTO chats (name, lastMessage, time, avatar) VALUES (?, ?, ?, ?);',
-    [name, lastMessage, time, avatar]
+    'INSERT INTO chats (name, lastMessage, time, avatar, userId) VALUES (?, ?, ?, ?, ?);',
+    [name, lastMessage, time, avatar, userId]
   );
 };
 
@@ -104,6 +106,7 @@ export const dropAndRecreateChats = () => {
     db.runSync(`
       CREATE TABLE IF NOT EXISTS chats (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
+        userId INTEGER,
         name TEXT,
         lastMessage TEXT,
         time TEXT,
@@ -113,8 +116,11 @@ export const dropAndRecreateChats = () => {
 };
 
 // Chatleri okuma
-export const getChats = (): any[] => {
-  return db.getAllSync('SELECT * FROM chats;');
+export const getChats = (userId?: number): any[] => {
+  if (userId === undefined) {
+    return db.getAllSync('SELECT * FROM chats;');
+  }
+  return db.getAllSync('SELECT * FROM chats WHERE userId = ?;', [userId]);
 };
 
 // Call ekleme

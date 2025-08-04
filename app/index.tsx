@@ -25,6 +25,7 @@ export default function AppTabs() {
 
   // Kullanıcı tablosunu ilk renderda oluştur
   React.useEffect(() => {
+    //dropAndRecreateUserTable();
     setupUserTable();
   }, []);
 
@@ -51,17 +52,21 @@ export default function AppTabs() {
   // Hesap modalı
   const AccountModal = () => (
     <View style={styles.modalOverlay}>
-      <View style={styles.modalContent}>
-        <Text style={styles.modalTitle}>Hesap Bilgileri</Text>
-        <Text style={styles.modalLabel}>Kullanıcı Adı:</Text>
-        <Text style={styles.modalValue}>{user?.username}</Text>
-        <Text style={styles.modalLabel}>Email:</Text>
-        <Text style={styles.modalValue}>{user?.email}</Text>
-        <View style={styles.modalButtonContainer}>
-          <TouchableOpacity style={styles.logoutButton} onPress={() => { setUser(null); setShowAccountModal(false); }}>
-            <Text style={styles.logoutButtonText}>Çıkış Yap</Text>
-          </TouchableOpacity>
-        </View>
+      <View style={styles.profileCard}>
+        {/* Profil Fotoğrafı */}
+        <TouchableOpacity style={styles.avatarContainer}>
+          {/* Burada profil fotoğrafı varsa göster, yoksa default ikon */}
+          <Ionicons name="person-circle" size={80} color={Colors.whatsappLightGreen} />
+          <View style={styles.editPhotoOverlay}>
+            <Ionicons name="camera" size={24} color={Colors.headerText} />
+          </View>
+        </TouchableOpacity>
+        <Text style={styles.profileName}>{user?.name || 'İsim'}</Text>        
+        <Text style={styles.profileName}>{user?.username || 'Kullanıcı Adı'}</Text>
+        <View style={styles.profileDivider} />
+        <TouchableOpacity style={styles.logoutButton} onPress={() => { setUser(null); setShowAccountModal(false); }}>
+          <Text style={styles.logoutButtonText}>Çıkış Yap</Text>
+        </TouchableOpacity>
         <TouchableOpacity style={styles.closeButton} onPress={() => setShowAccountModal(false)}>
           <Text style={styles.closeButtonText}>Kapat</Text>
         </TouchableOpacity>
@@ -112,7 +117,9 @@ export default function AppTabs() {
               iconName = 'reload-circle-sharp';
             } else if (route.name === 'communities') {
               iconName = 'people-sharp';
-            } else if (route.name === 'calls') {
+        <Tab.Screen name="chats">
+          {() => <ChatsScreen userId={user?.id} />}
+        </Tab.Screen>
               iconName = 'call-sharp';
             } else {
               iconName = 'help-circle-sharp';
@@ -121,7 +128,12 @@ export default function AppTabs() {
           },
         })}
       >
-        <Tab.Screen name="chats" component={ChatsScreen} options={{ title: 'Sohbetler' }} />
+        <Tab.Screen
+          name="chats"
+          options={{ title: 'Sohbetler' }}
+        >
+          {() => <ChatsScreen userId={user?.id} />}
+        </Tab.Screen>
         <Tab.Screen name="updates" component={UpdatesScreen} options={{ title: 'Güncellemeler' }} />
         <Tab.Screen name="communities" component={CommunitiesScreen} options={{ title: 'Topluluklar' }} />
         <Tab.Screen name="calls" component={CallsScreen} options={{ title: 'Aramalar' }} />
@@ -162,11 +174,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     zIndex: 999,
   },
-  modalContent: {
+  profileCard: {
     backgroundColor: Colors.headerContainer,
-    borderRadius: 16,
-    padding: 24,
-    minWidth: 280,
+    borderRadius: 20,
+    padding: 28,
+    minWidth: 300,
     alignItems: 'center',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
@@ -174,27 +186,38 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     elevation: 5,
   },
-  modalTitle: {
-    fontSize: 20,
+  avatarContainer: {
+    position: 'relative',
+    marginBottom: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  editPhotoOverlay: {
+    position: 'absolute',
+    bottom: 0,
+    right: 0,
+    backgroundColor: Colors.whatsappLightGreen,
+    borderRadius: 16,
+    padding: 4,
+    borderWidth: 2,
+    borderColor: Colors.headerContainer,
+  },
+  profileName: {
+    fontSize: 22,
     fontWeight: 'bold',
     color: Colors.whatsappGreen,
-    marginBottom: 16,
+    marginBottom: 6,
   },
-  modalLabel: {
-    fontSize: 16,
-    color: Colors.chatTime,
-    marginBottom: 4,
-  },
-  modalValue: {
+  profileEmail: {
     fontSize: 16,
     color: Colors.textPrimary,
-    marginBottom: 20,
-    fontWeight: 'bold',
+    marginBottom: 10,
   },
-  modalButtonContainer: {
-    marginBottom: 12,
-    width: '100%',
-    alignItems: 'center',
+  profileDivider: {
+    width: '80%',
+    height: 1,
+    backgroundColor: Colors.chatTime,
+    marginVertical: 12,
   },
   logoutButton: {
     backgroundColor: Colors.whatsappLightGreen,
@@ -202,6 +225,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 32,
     borderRadius: 8,
     marginBottom: 8,
+    width: '80%',
+    alignItems: 'center',
   },
   logoutButtonText: {
     color: 'white',
@@ -213,6 +238,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
     borderRadius: 8,
     backgroundColor: Colors.chatTime,
+    width: '80%',
+    alignItems: 'center',
   },
   closeButtonText: {
     color: 'white',

@@ -10,17 +10,17 @@ type RegisterScreenProps = {
 
 export default function RegisterScreen({ onRegister, onNavigateToLogin }: RegisterScreenProps) {
   const [username, setUsername] = useState('');
-  const [email, setEmail] = useState('');
+  const [name, setName] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
 
   const handleRegister = async () => {
     try {
-      const user = await registerUser(username, email, password);
+      const user = await registerUser(username, name, password);
       if (user) {
         onRegister(user);
       } else {
-        setError('Kayıt başarısız. Kullanıcı adı veya email zaten kullanılıyor olabilir.');
+        setError('Kayıt başarısız. Kullanıcı adı zaten kullanılıyor olabilir.');
       }
     } catch (e: any) {
       setError('Bir hata oluştu: ' + (e?.message || JSON.stringify(e)));
@@ -40,10 +40,10 @@ export default function RegisterScreen({ onRegister, onNavigateToLogin }: Regist
       />
       <TextInput
         style={styles.input}
-        placeholder="Email"
-        value={email}
-        onChangeText={setEmail}
-        autoCapitalize="none"
+        placeholder="İsim"
+        value={name}
+        onChangeText={setName}
+        autoCapitalize="words"
         placeholderTextColor={Colors.chatTime}
       />
       <TextInput
