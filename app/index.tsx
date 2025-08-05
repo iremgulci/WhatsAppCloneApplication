@@ -32,9 +32,7 @@ export default function AppTabs() {
   // Custom Header Bileşeni (WhatsApp'ın üst kısmı için)
   const CustomWhatsAppHeader = () => (
     <View style={styles.headerContainer}>
-      <TouchableOpacity onPress={() => router.push('./profiles')}>
         <Text style={styles.headerTitle}>WhatsApp</Text>
-      </TouchableOpacity>
       <View style={styles.headerIcons}>
         <TouchableOpacity style={styles.iconButton}>
           <Ionicons name="camera-outline" size={24} color={Colors.headerText} />
@@ -117,9 +115,7 @@ export default function AppTabs() {
               iconName = 'reload-circle-sharp';
             } else if (route.name === 'communities') {
               iconName = 'people-sharp';
-        <Tab.Screen name="chats">
-          {() => <ChatsScreen userId={user?.id} />}
-        </Tab.Screen>
+            } else if (route.name === 'calls') {
               iconName = 'call-sharp';
             } else {
               iconName = 'help-circle-sharp';
