@@ -12,7 +12,6 @@ import db, { addChat, deleteChat, getChats, getMessagesForChat, setupDatabase } 
 function useRegisteredContacts(currentUserId: number) {
   const [contacts, setContacts] = React.useState<any[]>([]);
   React.useEffect(() => {
-    // Kendi hesabını listeden çıkar
     const users = db.getAllSync('SELECT * FROM users ');
     setContacts(users);
   }, [currentUserId]);

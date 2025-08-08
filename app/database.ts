@@ -189,60 +189,35 @@ export const setupMessagesTable = () => {
       text TEXT,
       isMine INTEGER,
       time TEXT
+      type TEXT DEFAULT 'text',
+      audioUri TEXT,
+      audioDuration INTEGER,
+      fileUri TEXT,
+      fileName TEXT,
+      fileSize INTEGER
     );
   `);
-  
-  // Eksik sütunları kontrol et ve ekle
-  try {
-    // type sütunu ekle
-    db.execSync('ALTER TABLE messages ADD COLUMN type TEXT DEFAULT "text";');
-    console.log('Added type column to messages table');
-  } catch (error) {
-    console.log('type column already exists or error:', error);
-  }
-  
-  try {
-    // audioUri sütunu ekle
-    db.execSync('ALTER TABLE messages ADD COLUMN audioUri TEXT;');
-    console.log('Added audioUri column to messages table');
-  } catch (error) {
-    console.log('audioUri column already exists or error:', error);
-  }
-  
-  try {
-    // audioDuration sütunu ekle
-    db.execSync('ALTER TABLE messages ADD COLUMN audioDuration INTEGER;');
-    console.log('Added audioDuration column to messages table');
-  } catch (error) {
-    console.log('audioDuration column already exists or error:', error);
-  }
-  
-  try {
-    // fileUri sütunu ekle
-    db.execSync('ALTER TABLE messages ADD COLUMN fileUri TEXT;');
-    console.log('Added fileUri column to messages table');
-  } catch (error) {
-    console.log('fileUri column already exists or error:', error);
-  }
-  
-  try {
-    // fileName sütunu ekle
-    db.execSync('ALTER TABLE messages ADD COLUMN fileName TEXT;');
-    console.log('Added fileName column to messages table');
-  } catch (error) {
-    console.log('fileName column already exists or error:', error);
-  }
-  
-  try {
-    // fileSize sütunu ekle
-    db.execSync('ALTER TABLE messages ADD COLUMN fileSize INTEGER;');
-    console.log('Added fileSize column to messages table');
-  } catch (error) {
-    console.log('fileSize column already exists or error:', error);
-  }
-  
-  console.log('Messages table schema updated successfully');
+}
+
+export const dropAndRecreateMessages = () => {
+  db.runSync('DROP TABLE IF EXISTS messages;');
+  db.runSync(`
+    CREATE TABLE IF NOT EXISTS messages (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      chatId INTEGER,
+      text TEXT,
+      isMine INTEGER,
+      time TEXT,
+      type TEXT DEFAULT 'text',
+      audioUri TEXT,
+      audioDuration INTEGER,
+      fileUri TEXT,
+      fileName TEXT,
+      fileSize INTEGER
+    );
+  `);
 };
+
 
 export const addMessage = (chatId: number, text: string, isMine: boolean, time: string, type: string = 'text', audioUri?: string, audioDuration?: number, fileUri?: string, fileName?: string, fileSize?: number) => {
   try {

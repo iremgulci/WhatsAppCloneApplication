@@ -21,7 +21,7 @@ import {
 import AudioRecorder from '../../components/AudioRecorder'; // Ses kayıt bileşeni
 import MessageBubble, { Message } from '../../components/MessageBubble'; // Mesaj balonu bileşeni
 import { Colors } from '../../components/SharedStyles'; // Paylaşılan renkler
-import { addMessage, deleteMessage, getMessagesForChat, setupMessagesTable } from '../database'; // Veritabanı işlemleri
+import { addMessage, deleteMessage, getMessagesForChat } from '../database'; // Veritabanı işlemleri
 
 // WebSocket sunucu adresi
 const WS_URL = 'ws://192.168.60.14:8080'; // Bilgisayarınızın IP adresini girin
@@ -73,7 +73,6 @@ export default function ChatDetailScreen() {
 
   // Component mount olduğunda çalışacak effect
   React.useEffect(() => {
-    setupMessagesTable(); // Veritabanı tablosunu hazırla
     loadMessages(); // Mesajları yükle
 
     // WebSocket bağlantısını başlat

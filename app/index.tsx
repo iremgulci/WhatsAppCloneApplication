@@ -26,6 +26,7 @@ export default function AppTabs() {
   // Kullanıcı tablosunu ilk renderda oluştur
   React.useEffect(() => {
     //dropAndRecreateUserTable();
+    //dropAndRecreateMessages();
     setupUserTable();
   }, []);
 
