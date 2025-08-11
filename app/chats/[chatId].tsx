@@ -4,7 +4,7 @@ import { format } from 'date-fns'; // Tarih formatlama kütüphanesi
 import { tr } from 'date-fns/locale'; // Türkçe tarih formatı
 import * as DocumentPicker from 'expo-document-picker'; // Dosya seçici kütüphanesi
 import * as FileSystem from 'expo-file-system'; // Dosya sistemi kütüphanesi
-import { useLocalSearchParams } from 'expo-router'; // URL parametrelerini okuma hook'u
+import { useLocalSearchParams, useRouter } from 'expo-router'; // URL parametrelerini okuma hook'u
 import * as React from 'react'; // React kütüphanesi
 import {
   Alert, // Uyarı mesajları için
@@ -21,7 +21,7 @@ import {
 import AudioRecorder from '../../components/AudioRecorder'; // Ses kayıt bileşeni
 import MessageBubble, { Message } from '../../components/MessageBubble'; // Mesaj balonu bileşeni
 import { Colors } from '../../components/SharedStyles'; // Paylaşılan renkler
-import { addMessage, deleteMessage, getMessagesForChat } from '../database'; // Veritabanı işlemleri
+import { addMessage, deleteMessage, ensureChatForIncomingMessage, getMessagesBetweenUsers, getMessagesForChat } from '../database'; // Veritabanı işlemleri
 
 // WebSocket sunucu adresi
 const WS_URL = 'ws://192.168.60.14:8080'; // Bilgisayarınızın IP adresini girin
@@ -30,8 +30,10 @@ const WS_URL = 'ws://192.168.60.14:8080'; // Bilgisayarınızın IP adresini gir
 export default function ChatDetailScreen() {
   // URL'den chat ID'sini al
   const params = useLocalSearchParams();
+  const router = useRouter();
   const chatId = Number(params.chatId);
   const currentUserId = params.currentUserId as string;
+  const otherUserId = params.otherUserId as string; // <-- add this line
 
   // State tanımlamaları
   const [messageInput, setMessageInput] = React.useState(''); // Mesaj giriş metni
@@ -44,7 +46,12 @@ export default function ChatDetailScreen() {
   // Mesajları yükleme fonksiyonu
   const loadMessages = React.useCallback(() => {
     // Veritabanından mesajları al ve formatla
-    const allMessages = getMessagesForChat(chatId);
+    let allMessages = getMessagesForChat(chatId);
+
+    // 1-1 sohbet: her iki kullanıcı arasındaki mesajları getir (farklı chatId'lerde kaydedilmiş olsa bile)
+    if (userId && otherUserId) {
+      allMessages = getMessagesBetweenUsers(userId, otherUserId);
+    }
     
     // Sadece mevcut kullanıcının gönderdiği veya aldığı mesajları filtrele
     const userMessages = allMessages.filter((m: any) => {
@@ -95,7 +102,7 @@ export default function ChatDetailScreen() {
       };
     });
     setMessages(msgs);
-  }, [chatId, userId]);
+  }, [chatId, userId, otherUserId]);
 
   // Component mount olduğunda çalışacak effect
   React.useEffect(() => {
@@ -120,6 +127,18 @@ export default function ChatDetailScreen() {
         if (data.message && data.from !== finalUserId) {
           const time = new Date().toISOString();
           addMessage(chatId, data.message, false, time, 'text', undefined, undefined, undefined, undefined, undefined, data.from, finalUserId);
+          
+          // Gelen mesaj için chat satırı oluştur (eğer yoksa)
+          try {
+            const currentUserNumericId = Number(currentUserId?.replace('user_', '') || '0');
+            if (currentUserNumericId > 0) {
+              ensureChatForIncomingMessage(currentUserNumericId, finalUserId, data.from);
+              console.log('Chat row created for incoming message from:', data.from);
+            }
+          } catch (err) {
+            console.log('Error ensuring chat for incoming message:', err);
+          }
+          
           loadMessages();
         }
       } catch (err) {
@@ -130,7 +149,7 @@ export default function ChatDetailScreen() {
     return () => {
       socket.close();
     };
-  }, [chatId, loadMessages, userId]);
+  }, [chatId, loadMessages, userId, otherUserId, router]);
 
   // Mesajları ters çevir (en yeni mesajlar altta görünsün)
   const reversedMessages = React.useMemo(() => [...messages].reverse(), [messages]);
@@ -139,7 +158,7 @@ export default function ChatDetailScreen() {
   const handleSendMessage = () => {
     if (messageInput.trim()) { // Boş mesaj kontrolü
       const time = new Date().toISOString(); // Şu anki zamanı al
-      addMessage(chatId, messageInput.trim(), true, time, 'text', undefined, undefined, undefined, undefined, undefined, userId, 'all'); // Veritabanına mesaj ekle
+      addMessage(chatId, messageInput.trim(), true, time, 'text', undefined, undefined, undefined, undefined, undefined, userId, otherUserId); // Veritabanına mesaj ekle
       loadMessages(); // Mesajları yeniden yükle
       setMessageInput(''); // Input'u temizle
       // WebSocket ile mesajı gönder - tüm diğer kullanıcılara gönder
@@ -148,7 +167,7 @@ export default function ChatDetailScreen() {
           JSON.stringify({
             type: 'message',
             from: userId,
-            to: 'all', // Tüm kullanıcılara gönder
+            to: otherUserId || 'all', // Birebir sohbet için karşı tarafın ID'si
             message: messageInput.trim(),
           })
         );
@@ -163,7 +182,7 @@ export default function ChatDetailScreen() {
     try {
       const time = new Date().toISOString();
       // Ses kaydını veritabanına ekle
-      addMessage(chatId, 'Ses kaydı', true, time, 'audio', uri, duration, undefined, undefined, undefined, userId, 'all');
+      addMessage(chatId, 'Ses kaydı', true, time, 'audio', uri, duration, undefined, undefined, undefined, userId, otherUserId);
       loadMessages(); // Mesajları yeniden yükle
       setShowAudioRecorder(false); // Ses kayıt görünümünü kapat
       
@@ -209,7 +228,7 @@ export default function ChatDetailScreen() {
           file.name, 
           fileSize,
           userId,
-          'all'
+          otherUserId
         );
         
         loadMessages(); // Mesajları yeniden yükle

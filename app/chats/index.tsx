@@ -6,20 +6,40 @@ import * as React from 'react';
 import { Alert, FlatList, Modal, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import ChatListItem, { Chat } from '../../components/ChatListItem';
 import { GlobalStyles } from '../../components/SharedStyles';
-import db, { addChat, deleteChat, getChats, getMessagesForChat, setupDatabase } from '../database';
+import db, { addChat, deleteChat, ensureChatsForUser, getChats, getMessagesBetweenUsers, getMessagesForChat } from '../database';
 
 // Veritabanındaki kayıtlı kullanıcıları göster
 function useRegisteredContacts(currentUserId: number) {
   const [contacts, setContacts] = React.useState<any[]>([]);
   React.useEffect(() => {
-    const users = db.getAllSync('SELECT * FROM users ');
-    setContacts(users);
+    try {
+      // Önce 'id' sütunu ile dene
+      let users = db.getAllSync('SELECT * FROM users');
+      console.log('Raw users from database:', users);
+      
+      // Eğer users boşsa veya hata varsa, 'userId' sütunu ile dene
+      if (!users || users.length === 0) {
+        try {
+          users = db.getAllSync('SELECT * FROM users WHERE userId IS NOT NULL');
+          console.log('Users with userId column:', users);
+        } catch (err) {
+          console.log('Error with userId column:', err);
+        }
+      }
+      
+      setContacts(users);
+      console.log('Contacts set:', users);
+    } catch (err) {
+      console.log('Error fetching users:', err);
+      setContacts([]);
+    }
   }, [currentUserId]);
   return contacts;
 }
 interface ChatsScreenProps {
   userId: number;
   currentUserId?: string;
+  onChatListRefresh?: () => void;
 }
 
 export default function ChatsScreen({ userId, currentUserId }: ChatsScreenProps) {
@@ -29,11 +49,63 @@ export default function ChatsScreen({ userId, currentUserId }: ChatsScreenProps)
   const [chats, setChats] = React.useState<Chat[]>([]);
   // Kişi seçme modalı açık mı?
   const [modalVisible, setModalVisible] = React.useState(false);
+  // ensureChatsForUser'ın çalışıp çalışmadığını takip et
+  const [chatsEnsured, setChatsEnsured] = React.useState(false);
+
+  // Contacts yüklendiğinde chat listesini yenile
+  React.useEffect(() => {
+    if (contacts.length > 0) {
+      console.log('Contacts loaded, reloading chats. Contacts count:', contacts.length);
+      reloadChats();
+    }
+  }, [contacts]);
 
   // Chat listesini günceller: Her chat için son mesajı ve zamanı bulur, mesajı olmayanları filtreler ve en günceli en üste sıralar
-  const reloadChats = () => {
-    const chatsWithLastMessage = getChats(userId).map((chat: any) => {
-      const messages = getMessagesForChat(Number(chat.id));
+  const reloadChats = React.useCallback(() => {
+    console.log('reloadChats called with userId:', userId, 'currentUserId:', currentUserId, 'contacts count:', contacts.length);
+    
+    // Contacts henüz yüklenmemişse bekle
+    if (contacts.length === 0) {
+      console.log('Contacts not loaded yet, skipping reloadChats');
+      return;
+    }
+
+    // Önce mevcut kullanıcı için tüm chat'leri oluştur (mesaj geçmişinden) - sadece bir kez
+    if (currentUserId && !chatsEnsured) {
+      try {
+        const currentUserNumericId = Number(currentUserId.replace('user_', ''));
+        if (currentUserNumericId > 0) {
+          console.log('Ensuring chats for user:', currentUserNumericId, currentUserId);
+          ensureChatsForUser(currentUserNumericId, currentUserId);
+          setChatsEnsured(true); // Artık çalıştırıldı
+        }
+      } catch (err) {
+        console.log('Error ensuring chats for user:', err);
+      }
+    }
+
+    const allChats = getChats(userId);
+    console.log('All chats from database:', allChats);
+    
+    const chatsWithLastMessage = allChats.map((chat: any) => {
+      // chat.name üzerinden karşı kişi bulunur
+      console.log('Looking for contact with name:', chat.name);
+      console.log('Available contacts:', contacts.map(c => ({ name: c.name, userId: c.userId, id: c.id })));
+      
+      const contact = contacts.find((c: any) => c.name === chat.name);
+      console.log('Found contact:', contact);
+      
+      const otherUserNumericId = contact ? (contact.userId ?? contact.id) : undefined;
+      const otherUserId = otherUserNumericId ? `user_${otherUserNumericId}` : undefined;
+
+      console.log('Processing chat:', chat.name, 'otherUserId:', otherUserId, 'currentUserId:', currentUserId);
+
+      // İki kullanıcı arasındaki mesajları al (fallback: chatId)
+      const messages = (currentUserId && otherUserId)
+        ? getMessagesBetweenUsers(currentUserId, otherUserId)
+        : getMessagesForChat(Number(chat.id));
+      
+      console.log('Messages found for chat:', chat.name, 'count:', messages.length, 'messages:', messages);
       
       // Sadece mevcut kullanıcının gönderdiği veya aldığı mesajları filtrele
       const userMessages = messages.filter((msg: any) => {
@@ -45,6 +117,8 @@ export default function ChatsScreen({ userId, currentUserId }: ChatsScreenProps)
           return msg.isMine === 1 || msg.isMine === 0;
         }
       });
+      
+      console.log('Filtered user messages for chat:', chat.name, 'count:', userMessages.length);
       
       let lastMessage = 'Son Mesaj Yok';
       let lastTime = '';
@@ -72,6 +146,7 @@ export default function ChatsScreen({ userId, currentUserId }: ChatsScreenProps)
             lastTime = format(msgDate, 'dd/MM/yyyy', { locale: tr });
           }
         }
+        console.log('Last message for chat:', chat.name, 'text:', lastMessage, 'time:', lastTime);
       }
       return { ...chat, lastMessage, time: lastTime, hasMessages: userMessages.length > 0 };
     });
@@ -79,39 +154,49 @@ export default function ChatsScreen({ userId, currentUserId }: ChatsScreenProps)
     const sortedChats = chatsWithLastMessage
       .filter(c => c.hasMessages)
       .sort((a, b) => {
-        const aMsg = getMessagesForChat(Number(a.id));
-        const bMsg = getMessagesForChat(Number(b.id));
+        // Her iki chat için de getMessagesBetweenUsers kullan
+        const contactA = contacts.find((c: any) => c.name === a.name);
+        const otherUserAId = contactA ? (contactA.userId ?? contactA.id) : undefined;
+        const otherUserIdA = otherUserAId ? `user_${otherUserAId}` : undefined;
+        
+        const contactB = contacts.find((c: any) => c.name === b.name);
+        const otherUserBId = contactB ? (contactB.userId ?? contactB.id) : undefined;
+        const otherUserIdB = otherUserBId ? `user_${otherUserBId}` : undefined;
+        
+        const aMsg = (currentUserId && otherUserIdA) 
+          ? getMessagesBetweenUsers(currentUserId, otherUserIdA)
+          : getMessagesForChat(Number(a.id));
+        const bMsg = (currentUserId && otherUserIdB) 
+          ? getMessagesBetweenUsers(currentUserId, otherUserIdB)
+          : getMessagesForChat(Number(b.id));
+          
         const aTime = aMsg.length > 0 ? Date.parse(aMsg[aMsg.length - 1].time) : 0;
         const bTime = bMsg.length > 0 ? Date.parse(bMsg[bMsg.length - 1].time) : 0;
         return bTime - aTime;
       });
     setChats(sortedChats);
-  };
-
-  // Uygulama ilk açıldığında örnek chatleri ekle ve chat listesini yükle
-  React.useEffect(() => {
-    setupDatabase();
-    const chatsFromDb = getChats(userId);
-    if (chatsFromDb.length === 0) {
-      addChat('Ayşe Yılmaz', 'Son Mesaj Yok', '', 'https://randomuser.me/api/portraits/women/1.jpg', 999);
-      addChat('Mehmet Demir', 'Son Mesaj Yok', '', 'https://randomuser.me/api/portraits/men/2.jpg', 998);
-      addChat('Zeynep Kaya', 'Son Mesaj Yok', '', 'https://randomuser.me/api/portraits/women/3.jpg', 997);
-      addChat('Ali Can', 'Son Mesaj Yok', '', 'https://randomuser.me/api/portraits/men/4.jpg', 996);
-      addChat('Elif Su', 'Son Mesaj Yok', '', 'https://randomuser.me/api/portraits/women/5.jpg', 995);
-      addChat('Burak Aslan', 'Son Mesaj Yok', '', 'https://randomuser.me/api/portraits/men/6.jpg', 994);
-    }
-    reloadChats();
-  }, []);
+  }, [contacts, userId, currentUserId, chatsEnsured]);
 
   // Ekrana her dönüldüğünde chat listesini otomatik güncelle (canlılık için)
   useFocusEffect(
     React.useCallback(() => {
       reloadChats();
-    }, [])
+      
+      // Periyodik olarak chat listesini yenile (gelen mesajlar için)
+      const interval = setInterval(() => {
+        reloadChats();
+      }, 10000); // 10 saniyede bir yenile
+      
+      return () => clearInterval(interval);
+    }, [reloadChats])
   );
 
   // Bir chat'e tıklanınca detay ekranına yönlendir
   const handleChatPress = (chat: Chat) => {
+    const contact = contacts.find((c: any) => c.name === chat.name);
+    const otherUserNumericId = contact ? (contact.userId ?? contact.id) : undefined;
+    const otherUserId = otherUserNumericId ? `user_${otherUserNumericId}` : undefined;
+
     router.push({
       pathname: '/chats/[chatId]',
       params: {
@@ -120,6 +205,7 @@ export default function ChatsScreen({ userId, currentUserId }: ChatsScreenProps)
         chatName: chat.name,
         avatarUrl: chat.avatar,
         currentUserId: currentUserId,
+        otherUserId: otherUserId,
       },
     });
   };

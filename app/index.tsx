@@ -3,7 +3,7 @@ import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { useRouter } from 'expo-router'; // useRouter'ı import ediyoruz
 import * as React from 'react';
 import { Platform, SafeAreaView, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { setupDatabase, setupUserTable } from '../app/database';
+import { ensureChatsForUser, setupDatabase, setupUserTable } from '../app/database';
 import { Colors, GlobalStyles } from '../components/SharedStyles';
 // Ekran Bileşenlerini import ediyoruz
 import LoginScreen from '../components/LoginScreen';
@@ -23,11 +23,18 @@ export default function AppTabs() {
   const [showRegister, setShowRegister] = React.useState(false);
   const [showAccountModal, setShowAccountModal] = React.useState(false);
   const [currentUserId, setCurrentUserId] = React.useState<string>('');
+  const [chatListRefreshKey, setChatListRefreshKey] = React.useState(0);
+
+  // Chat listesini yenilemek için callback
+  const refreshChatList = React.useCallback(() => {
+    setChatListRefreshKey(prev => prev + 1);
+  }, []);
 
   // Kullanıcı tablosunu ilk renderda oluştur
   React.useEffect(() => {
     //dropAndRecreateUserTable();
     //dropAndRecreateMessages();
+    //dropAndRecreateChats();
     setupUserTable();
     setupDatabase();
   }, []);
@@ -88,6 +95,8 @@ export default function AppTabs() {
             const userId = `user_${u.userId || u.id}`;
             console.log('Generated userId:', userId);
             setCurrentUserId(userId);
+            // Mevcut mesaj tarihine göre chat'leri oluştur
+            try { ensureChatsForUser(u.userId || u.id, userId); } catch {}
           }}
           onNavigateToLogin={() => setShowRegister(false)}
         />
@@ -102,6 +111,8 @@ export default function AppTabs() {
           const userId = `user_${u.userId || u.id}`;
           console.log('Generated userId:', userId);
           setCurrentUserId(userId);
+          // Mevcut mesaj tarihine göre chat'leri oluştur
+          try { ensureChatsForUser(u.userId || u.id, userId); } catch {}
         }}
         onNavigateToRegister={() => setShowRegister(true)}
       />
@@ -146,7 +157,12 @@ export default function AppTabs() {
           name="chats"
           options={{ title: 'Sohbetler' }}
         >
-          {() => <ChatsScreen userId={user?.userId || user?.id} currentUserId={currentUserId} />}
+          {() => <ChatsScreen 
+            userId={user?.userId || user?.id} 
+            currentUserId={currentUserId} 
+            onChatListRefresh={refreshChatList}
+            key={chatListRefreshKey}
+          />}
         </Tab.Screen>
         <Tab.Screen name="updates" component={UpdatesScreen} options={{ title: 'Güncellemeler' }} />
         <Tab.Screen name="communities" component={CommunitiesScreen} options={{ title: 'Topluluklar' }} />

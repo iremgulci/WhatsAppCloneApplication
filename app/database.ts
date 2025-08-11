@@ -243,6 +243,129 @@ export const getMessagesForChat = (chatId: number): any[] => {
   return db.getAllSync('SELECT * FROM messages WHERE chatId = ? ORDER BY id ASC;', [chatId]);
 };
 
+// Mesajları iki kullanıcı arasında (ve herkese açık olanları) getir
+export const getMessagesBetweenUsers = (userAId: string, userBId: string): any[] => {
+  return db.getAllSync(
+    `SELECT * FROM messages 
+     WHERE (senderId = ? AND receiverId = ?) 
+        OR (senderId = ? AND receiverId = ?) 
+        OR receiverId = 'all'
+     ORDER BY id ASC;`,
+    [userAId, userBId, userBId, userAId]
+  );
+};
+
+// Belirli bir kullanıcının (numeric ownerId) tüm konuşma partnerleri için chat satırını oluşturur
+export const ensureChatsForUser = (ownerUserIdNumeric: number, ownerUserIdString: string) => {
+  console.log('ensureChatsForUser called with:', ownerUserIdNumeric, ownerUserIdString);
+  
+  // Kullanıcının taraf olduğu ve birebir olan (receiverId != 'all') tüm mesajları al
+  const msgs = db.getAllSync(
+    `SELECT senderId, receiverId FROM messages 
+     WHERE (senderId = ? OR receiverId = ?) 
+       AND senderId IS NOT NULL 
+       AND receiverId IS NOT NULL 
+       AND receiverId != 'all';`,
+    [ownerUserIdString, ownerUserIdString]
+  );
+  
+  console.log('Found messages for user:', msgs);
+
+  // Karşı kullanıcıları ayıkla
+  const otherUserIds = new Set<string>();
+  for (const m of msgs as Array<{ senderId: string; receiverId: string }>) {
+    const s: string = m.senderId;
+    const r: string = m.receiverId;
+    if (s === ownerUserIdString && r) otherUserIds.add(r);
+    if (r === ownerUserIdString && s) otherUserIds.add(s);
+  }
+  
+  console.log('Other user IDs found:', Array.from(otherUserIds));
+
+  // Her bir karşı kullanıcı için chat satırı oluştur (yoksa)
+  for (const otherUserIdStr of otherUserIds) {
+    if (!otherUserIdStr.startsWith('user_')) continue;
+    const numericPart = Number(otherUserIdStr.replace('user_', ''));
+    if (!Number.isFinite(numericPart)) continue;
+
+    // Kullanıcı bilgilerini getir - önce hangi sütun adının kullanıldığını kontrol et
+    let users: any[];
+    try {
+      // Önce 'id' sütunu ile dene
+      users = db.getAllSync('SELECT * FROM users WHERE id = ?;', [numericPart]) as Array<{ id: number; username: string; name: string; password: string }>;
+    } catch (err) {
+      // 'id' yoksa 'userId' ile dene
+      try {
+        users = db.getAllSync('SELECT * FROM users WHERE userId = ?;', [numericPart]) as Array<{ userId: number; username: string; name: string; password: string }>;
+      } catch (err2) {
+        console.log('Could not find user with either id or userId:', numericPart);
+        continue;
+      }
+    }
+    
+    const otherUser = users[0];
+    const otherName = otherUser?.name || otherUserIdStr;
+    const otherAvatar = '';
+
+    console.log('Processing other user:', otherUserIdStr, 'name:', otherName);
+
+    // Bu kullanıcı için bu isimde chat var mı?
+    const existing = db.getAllSync('SELECT * FROM chats WHERE userId = ? AND name = ? LIMIT 1;', [ownerUserIdNumeric, otherName]) as any[];
+    if (!existing || existing.length === 0) {
+      console.log('Creating new chat for:', otherName);
+      addChat(otherName, 'Son Mesaj Yok', '', otherAvatar, ownerUserIdNumeric);
+    } else {
+      console.log('Chat already exists for:', otherName);
+    }
+  }
+};
+
+// Gelen mesaj için chat satırı oluştur (eğer yoksa)
+export const ensureChatForIncomingMessage = (receiverUserIdNumeric: number, receiverUserIdString: string, senderUserIdString: string) => {
+  console.log('ensureChatForIncomingMessage called with:', receiverUserIdNumeric, receiverUserIdString, senderUserIdString);
+  
+  if (!senderUserIdString.startsWith('user_')) {
+    console.log('Sender ID does not start with user_:', senderUserIdString);
+    return;
+  }
+  
+  const numericPart = Number(senderUserIdString.replace('user_', ''));
+  if (!Number.isFinite(numericPart)) {
+    console.log('Invalid numeric part from sender ID:', senderUserIdString);
+    return;
+  }
+
+  // Gönderen kullanıcı bilgilerini getir - önce hangi sütun adının kullanıldığını kontrol et
+  let users: any[];
+  try {
+    // Önce 'id' sütunu ile dene
+    users = db.getAllSync('SELECT * FROM users WHERE id = ?;', [numericPart]) as Array<{ id: number; username: string; name: string; password: string }>;
+  } catch (err) {
+    // 'id' yoksa 'userId' ile dene
+    try {
+      users = db.getAllSync('SELECT * FROM users WHERE userId = ?;', [numericPart]) as Array<{ userId: number; username: string; name: string; password: string }>;
+    } catch (err2) {
+      console.log('Could not find user with either id or userId:', numericPart);
+      return;
+    }
+  }
+  
+  const senderUser = users[0];
+  const senderName = senderUser?.name || senderUserIdString;
+  const senderAvatar = '';
+
+  console.log('Sender user found:', senderUser, 'name:', senderName);
+
+  // Alıcı kullanıcı için bu isimde chat var mı?
+  const existing = db.getAllSync('SELECT * FROM chats WHERE userId = ? AND name = ? LIMIT 1;', [receiverUserIdNumeric, senderName]) as any[];
+  if (!existing || existing.length === 0) {
+    console.log('Creating new chat for incoming message from:', senderName);
+    addChat(senderName, 'Son Mesaj Yok', '', senderAvatar, receiverUserIdNumeric);
+  } else {
+    console.log('Chat already exists for incoming message from:', senderName);
+  }
+};
+
 export const clearMessages = () => {
   db.runSync('DELETE FROM messages;');
 };
