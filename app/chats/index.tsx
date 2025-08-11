@@ -12,27 +12,8 @@ import db, { addChat, deleteChat, getChats, getMessagesForChat, setupDatabase } 
 function useRegisteredContacts(currentUserId: number) {
   const [contacts, setContacts] = React.useState<any[]>([]);
   React.useEffect(() => {
-    try {
-      // Şema uyumluluğu: users tablosunda bazı kurulumlarda 'id', bazılarında 'userId' sütunu var
-      const columns: any[] = db.getAllSync("PRAGMA table_info('users');");
-      const hasId = columns.some((c: any) => c.name === 'id');
-      const hasUserId = columns.some((c: any) => c.name === 'userId');
-      const keyColumn = hasId ? 'id' : hasUserId ? 'userId' : undefined;
-
-      let users: any[] = [];
-      if (keyColumn) {
-        users = db.getAllSync(`SELECT * FROM users WHERE ${keyColumn} != ?;`, [currentUserId]);
-      } else {
-        // Son çare: tüm kullanıcıları al, JS tarafında filtrele
-        const all = db.getAllSync('SELECT * FROM users;');
-        users = all.filter((u: any) => (u.id ?? u.userId) !== currentUserId);
-      }
-      setContacts(users);
-    } catch (err) {
-      // Her durumda uygulama çökmemesi için geriye tüm kullanıcıları döndür
-      const fallback = db.getAllSync('SELECT * FROM users;');
-      setContacts(fallback.filter((u: any) => (u.id ?? u.userId) !== currentUserId));
-    }
+    const users = db.getAllSync('SELECT * FROM users ');
+    setContacts(users);
   }, [currentUserId]);
   return contacts;
 }
