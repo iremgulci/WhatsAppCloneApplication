@@ -63,8 +63,7 @@ export const setupDatabase = () => {
         name TEXT,
         lastMessage TEXT,
         time TEXT,
-        avatar TEXT,
-        userId INTEGER
+        avatar TEXT
       );
       CREATE TABLE IF NOT EXISTS calls (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -87,6 +86,7 @@ export const setupDatabase = () => {
         avatar TEXT
       );
     `);
+    setupMessagesTable();
   };
 
 // Chat ekleme
@@ -188,13 +188,15 @@ export const setupMessagesTable = () => {
       chatId INTEGER,
       text TEXT,
       isMine INTEGER,
-      time TEXT
+      time TEXT,
       type TEXT DEFAULT 'text',
       audioUri TEXT,
       audioDuration INTEGER,
       fileUri TEXT,
       fileName TEXT,
-      fileSize INTEGER
+      fileSize INTEGER,
+      senderId TEXT,
+      receiverId TEXT
     );
   `);
 }
@@ -213,19 +215,21 @@ export const dropAndRecreateMessages = () => {
       audioDuration INTEGER,
       fileUri TEXT,
       fileName TEXT,
-      fileSize INTEGER
+      fileSize INTEGER,
+      senderId TEXT,
+      receiverId TEXT
     );
   `);
 };
 
 
-export const addMessage = (chatId: number, text: string, isMine: boolean, time: string, type: string = 'text', audioUri?: string, audioDuration?: number, fileUri?: string, fileName?: string, fileSize?: number) => {
+export const addMessage = (chatId: number, text: string, isMine: boolean, time: string, type: string = 'text', audioUri?: string, audioDuration?: number, fileUri?: string, fileName?: string, fileSize?: number, senderId?: string, receiverId?: string) => {
   try {
-    console.log('Adding message to database:', { chatId, text, isMine, time, type, audioUri, audioDuration, fileUri, fileName, fileSize });
+    console.log('Adding message to database:', { chatId, text, isMine, time, type, audioUri, audioDuration, fileUri, fileName, fileSize, senderId, receiverId });
     
     db.runSync(
-      'INSERT INTO messages (chatId, text, isMine, time, type, audioUri, audioDuration, fileUri, fileName, fileSize) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?);',
-      [chatId, text, isMine ? 1 : 0, time, type, audioUri || null, audioDuration || null, fileUri || null, fileName || null, fileSize || null]
+      'INSERT INTO messages (chatId, text, isMine, time, type, audioUri, audioDuration, fileUri, fileName, fileSize, senderId, receiverId) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);',
+      [chatId, text, isMine ? 1 : 0, time, type, audioUri || null, audioDuration || null, fileUri || null, fileName || null, fileSize || null, senderId || null, receiverId || null]
     );
     
     console.log('Message added successfully to database');

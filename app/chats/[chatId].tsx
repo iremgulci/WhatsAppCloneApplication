@@ -31,6 +31,7 @@ export default function ChatDetailScreen() {
   // URL'den chat ID'sini al
   const params = useLocalSearchParams();
   const chatId = Number(params.chatId);
+  const currentUserId = params.currentUserId as string;
 
   // State tanımlamaları
   const [messageInput, setMessageInput] = React.useState(''); // Mesaj giriş metni
@@ -38,12 +39,26 @@ export default function ChatDetailScreen() {
   const [showAudioRecorder, setShowAudioRecorder] = React.useState(false); // Ses kayıt görünürlüğü
   const [showAttachmentMenu, setShowAttachmentMenu] = React.useState(false); // Dosya ekleme menüsü görünürlüğü
   const [ws, setWs] = React.useState<WebSocket | null>(null); // WebSocket bağlantısı
-  const [userId, setUserId] = React.useState<string>('user1'); // Her emülatörde farklı olmalı!
+  const [userId, setUserId] = React.useState<string>(currentUserId || ''); // Kullanıcı kimliği
 
   // Mesajları yükleme fonksiyonu
   const loadMessages = React.useCallback(() => {
     // Veritabanından mesajları al ve formatla
-    const msgs = getMessagesForChat(chatId).map((m: any) => {
+    const allMessages = getMessagesForChat(chatId);
+    
+    // Sadece mevcut kullanıcının gönderdiği veya aldığı mesajları filtrele
+    const userMessages = allMessages.filter((m: any) => {
+      if (userId && m.senderId) {
+        // Eğer senderId varsa, mevcut kullanıcının gönderdiği veya aldığı mesajlar
+        // receiverId 'all' ise tüm kullanıcılar görebilir
+        return m.senderId === userId || m.receiverId === userId || m.receiverId === 'all';
+      } else {
+        // Eski mesajlar için tüm mesajları göster
+        return true;
+      }
+    });
+    
+    const msgs = userMessages.map((m: any) => {
       let formattedTime = m.time;
       // Tarih formatını kontrol et ve düzenle
       if (m.time) {
@@ -54,11 +69,22 @@ export default function ChatDetailScreen() {
           formattedTime = format(d, 'dd.MM.yy HH:mm', { locale: tr });
         }
       }
+      
+      // Mesajın kimin tarafından gönderildiğini belirle
+      let isMine = false;
+      if (m.senderId && userId) {
+        // Eğer senderId varsa ve mevcut kullanıcıya aitse
+        isMine = m.senderId === userId;
+      } else {
+        // Eski mesajlar için isMine değerini kullan
+        isMine = !!m.isMine;
+      }
+      
       // Mesaj objesini döndür
       return {
         id: m.id.toString(),
         text: m.text,
-        isMine: !!m.isMine, // Boolean'a çevir
+        isMine: isMine,
         time: formattedTime,
         type: m.type || 'text', // Varsayılan tip text
         audioUri: m.audioUri,
@@ -69,24 +95,31 @@ export default function ChatDetailScreen() {
       };
     });
     setMessages(msgs);
-  }, [chatId]);
+  }, [chatId, userId]);
 
   // Component mount olduğunda çalışacak effect
   React.useEffect(() => {
     loadMessages(); // Mesajları yükle
 
+    // Kullanıcı kimliğini ayarla - her oturum için sabit olmalı
+    let finalUserId = userId;
+    if (!finalUserId) {
+      // Eğer userId yoksa yeni oluştur
+      finalUserId = `user_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+      setUserId(finalUserId);
+    }
+
     // WebSocket bağlantısını başlat
-    if (!userId) return;
     const socket = new WebSocket(WS_URL);
     socket.onopen = () => {
-      socket.send(JSON.stringify({ type: 'login', userId }));
+      socket.send(JSON.stringify({ type: 'login', userId: finalUserId }));
     };
     socket.onmessage = (event) => {
       try {
         const data = JSON.parse(event.data);
-        if (data.message) {
+        if (data.message && data.from !== finalUserId) {
           const time = new Date().toISOString();
-          addMessage(chatId, data.message, false, time, 'text');
+          addMessage(chatId, data.message, false, time, 'text', undefined, undefined, undefined, undefined, undefined, data.from, finalUserId);
           loadMessages();
         }
       } catch (err) {
@@ -97,7 +130,7 @@ export default function ChatDetailScreen() {
     return () => {
       socket.close();
     };
-  }, [userId, chatId, loadMessages]);
+  }, [chatId, loadMessages, userId]);
 
   // Mesajları ters çevir (en yeni mesajlar altta görünsün)
   const reversedMessages = React.useMemo(() => [...messages].reverse(), [messages]);
@@ -106,16 +139,16 @@ export default function ChatDetailScreen() {
   const handleSendMessage = () => {
     if (messageInput.trim()) { // Boş mesaj kontrolü
       const time = new Date().toISOString(); // Şu anki zamanı al
-      addMessage(chatId, messageInput.trim(), true, time, 'text'); // Veritabanına mesaj ekle
+      addMessage(chatId, messageInput.trim(), true, time, 'text', undefined, undefined, undefined, undefined, undefined, userId, 'all'); // Veritabanına mesaj ekle
       loadMessages(); // Mesajları yeniden yükle
       setMessageInput(''); // Input'u temizle
-      // WebSocket ile mesajı gönder
+      // WebSocket ile mesajı gönder - tüm diğer kullanıcılara gönder
       if (ws && ws.readyState === WebSocket.OPEN) {
         ws.send(
           JSON.stringify({
             type: 'message',
             from: userId,
-            to: 'user2', // Hedef kullanıcı ID'si (her emülatörde farklı olmalı)
+            to: 'all', // Tüm kullanıcılara gönder
             message: messageInput.trim(),
           })
         );
@@ -130,7 +163,7 @@ export default function ChatDetailScreen() {
     try {
       const time = new Date().toISOString();
       // Ses kaydını veritabanına ekle
-      addMessage(chatId, 'Ses kaydı', true, time, 'audio', uri, duration);
+      addMessage(chatId, 'Ses kaydı', true, time, 'audio', uri, duration, undefined, undefined, undefined, userId, 'all');
       loadMessages(); // Mesajları yeniden yükle
       setShowAudioRecorder(false); // Ses kayıt görünümünü kapat
       
@@ -174,7 +207,9 @@ export default function ChatDetailScreen() {
           undefined, 
           file.uri, 
           file.name, 
-          fileSize
+          fileSize,
+          userId,
+          'all'
         );
         
         loadMessages(); // Mesajları yeniden yükle

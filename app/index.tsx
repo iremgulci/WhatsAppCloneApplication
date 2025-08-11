@@ -3,7 +3,7 @@ import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { useRouter } from 'expo-router'; // useRouter'ı import ediyoruz
 import * as React from 'react';
 import { Platform, SafeAreaView, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { setupUserTable } from '../app/database';
+import { setupDatabase, setupUserTable } from '../app/database';
 import { Colors, GlobalStyles } from '../components/SharedStyles';
 // Ekran Bileşenlerini import ediyoruz
 import LoginScreen from '../components/LoginScreen';
@@ -22,12 +22,14 @@ export default function AppTabs() {
   const [user, setUser] = React.useState<any>(null);
   const [showRegister, setShowRegister] = React.useState(false);
   const [showAccountModal, setShowAccountModal] = React.useState(false);
+  const [currentUserId, setCurrentUserId] = React.useState<string>('');
 
   // Kullanıcı tablosunu ilk renderda oluştur
   React.useEffect(() => {
     //dropAndRecreateUserTable();
     //dropAndRecreateMessages();
     setupUserTable();
+    setupDatabase();
   }, []);
 
   // Custom Header Bileşeni (WhatsApp'ın üst kısmı için)
@@ -78,14 +80,29 @@ export default function AppTabs() {
     if (showRegister) {
       return (
         <RegisterScreen
-          onRegister={u => { setUser(u); setShowRegister(false); }}
+          onRegister={u => { 
+            console.log('Register user object:', u);
+            setUser(u); 
+            setShowRegister(false);
+            // Kullanıcı kimliğini oluştur - sabit olmalı
+            const userId = `user_${u.userId || u.id}`;
+            console.log('Generated userId:', userId);
+            setCurrentUserId(userId);
+          }}
           onNavigateToLogin={() => setShowRegister(false)}
         />
       );
     }
     return (
       <LoginScreen
-        onLogin={u => setUser(u)}
+        onLogin={u => { 
+          console.log('Login user object:', u);
+          setUser(u);
+          // Kullanıcı kimliğini oluştur - sabit olmalı
+          const userId = `user_${u.userId || u.id}`;
+          console.log('Generated userId:', userId);
+          setCurrentUserId(userId);
+        }}
         onNavigateToRegister={() => setShowRegister(true)}
       />
     );
@@ -129,7 +146,7 @@ export default function AppTabs() {
           name="chats"
           options={{ title: 'Sohbetler' }}
         >
-          {() => <ChatsScreen userId={user?.id} />}
+          {() => <ChatsScreen userId={user?.userId || user?.id} currentUserId={currentUserId} />}
         </Tab.Screen>
         <Tab.Screen name="updates" component={UpdatesScreen} options={{ title: 'Güncellemeler' }} />
         <Tab.Screen name="communities" component={CommunitiesScreen} options={{ title: 'Topluluklar' }} />

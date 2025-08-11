@@ -23,12 +23,16 @@ wss.on('connection', function connection(ws) {
         console.log(`User ${data.userId} connected.`);
       }
 
-      // Kullanıcı mesaj gönderirse, ilgili kullanıcıya ilet
+      // Kullanıcı mesaj gönderirse, diğer tüm kullanıcılara ilet
       if (data.type === 'message') {
-        const to = clients[data.to]; // Mesajın gönderileceği kullanıcı
-        if (to) {
-          // Mesajı hedef kullanıcıya ilet
-          to.send(JSON.stringify({ from: data.from, message: data.message }));
+        // Tüm bağlı kullanıcılara mesajı gönder (gönderen hariç)
+        for (const clientUserId in clients) {
+          if (clientUserId !== data.from) {
+            const client = clients[clientUserId];
+            if (client && client.readyState === 1) { // WebSocket.OPEN
+              client.send(JSON.stringify({ from: data.from, message: data.message }));
+            }
+          }
         }
       }
     } catch (err) {

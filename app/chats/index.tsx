@@ -12,16 +12,36 @@ import db, { addChat, deleteChat, getChats, getMessagesForChat, setupDatabase } 
 function useRegisteredContacts(currentUserId: number) {
   const [contacts, setContacts] = React.useState<any[]>([]);
   React.useEffect(() => {
-    const users = db.getAllSync('SELECT * FROM users ');
-    setContacts(users);
+    try {
+      // Şema uyumluluğu: users tablosunda bazı kurulumlarda 'id', bazılarında 'userId' sütunu var
+      const columns: any[] = db.getAllSync("PRAGMA table_info('users');");
+      const hasId = columns.some((c: any) => c.name === 'id');
+      const hasUserId = columns.some((c: any) => c.name === 'userId');
+      const keyColumn = hasId ? 'id' : hasUserId ? 'userId' : undefined;
+
+      let users: any[] = [];
+      if (keyColumn) {
+        users = db.getAllSync(`SELECT * FROM users WHERE ${keyColumn} != ?;`, [currentUserId]);
+      } else {
+        // Son çare: tüm kullanıcıları al, JS tarafında filtrele
+        const all = db.getAllSync('SELECT * FROM users;');
+        users = all.filter((u: any) => (u.id ?? u.userId) !== currentUserId);
+      }
+      setContacts(users);
+    } catch (err) {
+      // Her durumda uygulama çökmemesi için geriye tüm kullanıcıları döndür
+      const fallback = db.getAllSync('SELECT * FROM users;');
+      setContacts(fallback.filter((u: any) => (u.id ?? u.userId) !== currentUserId));
+    }
   }, [currentUserId]);
   return contacts;
 }
 interface ChatsScreenProps {
   userId: number;
+  currentUserId?: string;
 }
 
-export default function ChatsScreen({ userId }: ChatsScreenProps) {
+export default function ChatsScreen({ userId, currentUserId }: ChatsScreenProps) {
   const contacts = useRegisteredContacts(userId);
   const router = useRouter();
   // Sohbetler state'i
@@ -31,12 +51,24 @@ export default function ChatsScreen({ userId }: ChatsScreenProps) {
 
   // Chat listesini günceller: Her chat için son mesajı ve zamanı bulur, mesajı olmayanları filtreler ve en günceli en üste sıralar
   const reloadChats = () => {
-    const chatsWithLastMessage = getChats().map((chat: any) => {
+    const chatsWithLastMessage = getChats(userId).map((chat: any) => {
       const messages = getMessagesForChat(Number(chat.id));
+      
+      // Sadece mevcut kullanıcının gönderdiği veya aldığı mesajları filtrele
+      const userMessages = messages.filter((msg: any) => {
+        if (currentUserId && msg.senderId) {
+          // Eğer senderId varsa, mevcut kullanıcının gönderdiği veya aldığı mesajlar
+          return msg.senderId === currentUserId || msg.receiverId === currentUserId || msg.receiverId === 'all';
+        } else {
+          // Eski mesajlar için isMine kontrolü
+          return msg.isMine === 1 || msg.isMine === 0;
+        }
+      });
+      
       let lastMessage = 'Son Mesaj Yok';
       let lastTime = '';
-      if (messages.length > 0) {
-        const lastMsg = messages[messages.length - 1];
+      if (userMessages.length > 0) {
+        const lastMsg = userMessages[userMessages.length - 1];
         lastMessage = lastMsg.text;
         let msgDate: Date | null = null;
         if (lastMsg.time) {
@@ -60,7 +92,7 @@ export default function ChatsScreen({ userId }: ChatsScreenProps) {
           }
         }
       }
-      return { ...chat, lastMessage, time: lastTime, hasMessages: messages.length > 0 };
+      return { ...chat, lastMessage, time: lastTime, hasMessages: userMessages.length > 0 };
     });
     // Sadece mesajı olan chatleri göster ve son mesaj zamanına göre sırala (en güncel en üstte)
     const sortedChats = chatsWithLastMessage
@@ -78,7 +110,7 @@ export default function ChatsScreen({ userId }: ChatsScreenProps) {
   // Uygulama ilk açıldığında örnek chatleri ekle ve chat listesini yükle
   React.useEffect(() => {
     setupDatabase();
-    const chatsFromDb = getChats();
+    const chatsFromDb = getChats(userId);
     if (chatsFromDb.length === 0) {
       addChat('Ayşe Yılmaz', 'Son Mesaj Yok', '', 'https://randomuser.me/api/portraits/women/1.jpg', 999);
       addChat('Mehmet Demir', 'Son Mesaj Yok', '', 'https://randomuser.me/api/portraits/men/2.jpg', 998);
@@ -106,6 +138,7 @@ export default function ChatsScreen({ userId }: ChatsScreenProps) {
         userId: chat.userId,
         chatName: chat.name,
         avatarUrl: chat.avatar,
+        currentUserId: currentUserId,
       },
     });
   };
@@ -134,7 +167,8 @@ export default function ChatsScreen({ userId }: ChatsScreenProps) {
     // Eğer bu kişiyle chat yoksa yeni chat ekle
     let chat = chats.find(c => c.name === contact.name);
     if (!chat) {
-      addChat(contact.name, 'Son Mesaj Yok', '', contact.avatar, contact.userId);
+      // Chat satırı, uygulamada oturum açmış kullanıcıya ait olmalı
+      addChat(contact.name, 'Son Mesaj Yok', '', contact.avatar, userId);
       // Yeni eklenen chat'i veritabanından bul
       const allChats = getChats(userId);
       chat = allChats.find(c => c.name === contact.name);
@@ -146,7 +180,7 @@ export default function ChatsScreen({ userId }: ChatsScreenProps) {
     if (chat) {
       handleChatPress({
         id: chat.id,
-        userId: contact.userId,
+        userId: userId,
         name: contact.name,
         avatar: contact.avatar,
         lastMessage: '',
@@ -180,9 +214,19 @@ export default function ChatsScreen({ userId }: ChatsScreenProps) {
             <Text style={styles.modalTitle}>Kişi Seç</Text>
             <FlatList
               data={contacts}
-              keyExtractor={item => item.userId.toString()}
+              keyExtractor={item => (item.id ?? item.userId).toString()}
               renderItem={({ item }) => (
-                <TouchableOpacity style={styles.contactItem} onPress={() => handleStartChat({ id: item.id, userId: item.userId, name: item.name, avatar: '' })}>
+                <TouchableOpacity
+                  style={styles.contactItem}
+                  onPress={() =>
+                    handleStartChat({
+                      id: (item.id ?? item.userId).toString(),
+                      userId: item.id ?? item.userId,
+                      name: item.name,
+                      avatar: ''
+                    })
+                  }
+                >
                   <View style={styles.contactAvatar}>
                     <Text style={styles.contactAvatarText}>{item.name[0]}</Text>
                   </View>
