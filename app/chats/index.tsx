@@ -1,6 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
 import { format } from 'date-fns';
-import { tr } from 'date-fns/locale';
 import { useFocusEffect, useRouter } from 'expo-router';
 import * as React from 'react';
 import { Alert, FlatList, Modal, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
@@ -62,118 +61,66 @@ export default function ChatsScreen({ userId, currentUserId }: ChatsScreenProps)
 
   // Chat listesini günceller: Her chat için son mesajı ve zamanı bulur, mesajı olmayanları filtreler ve en günceli en üste sıralar
   const reloadChats = React.useCallback(() => {
-    console.log('reloadChats called with userId:', userId, 'currentUserId:', currentUserId, 'contacts count:', contacts.length);
-    
     // Contacts henüz yüklenmemişse bekle
-    if (contacts.length === 0) {
-      console.log('Contacts not loaded yet, skipping reloadChats');
-      return;
-    }
+    if (contacts.length === 0) return;
 
     // Önce mevcut kullanıcı için tüm chat'leri oluştur (mesaj geçmişinden) - sadece bir kez
     if (currentUserId && !chatsEnsured) {
       try {
         const currentUserNumericId = Number(currentUserId.replace('user_', ''));
         if (currentUserNumericId > 0) {
-          console.log('Ensuring chats for user:', currentUserNumericId, currentUserId);
           ensureChatsForUser(currentUserNumericId, currentUserId);
-          setChatsEnsured(true); // Artık çalıştırıldı
+          setChatsEnsured(true);
         }
       } catch (err) {
         console.log('Error ensuring chats for user:', err);
       }
     }
 
+    // Veritabanından tüm chat'leri al
     const allChats = getChats(userId);
-    console.log('All chats from database:', allChats);
     
-    const chatsWithLastMessage = allChats.map((chat: any) => {
-      // chat.name üzerinden karşı kişi bulunur
-      console.log('Looking for contact with name:', chat.name);
-      console.log('Available contacts:', contacts.map(c => ({ name: c.name, userId: c.userId, id: c.id })));
+    // Her chat için son mesajı ve zamanı bul
+    const chatsWithMessages = allChats.map(chat => {
+      // Chat ismine göre karşı kullanıcıyı bul
+      const contact = contacts.find(c => c.name === chat.name);
+      const otherUserId = contact ? `user_${contact.userId}` : undefined;
       
-      const contact = contacts.find((c: any) => c.name === chat.name);
-      console.log('Found contact:', contact);
-      
-      const otherUserNumericId = contact ? (contact.userId ?? contact.id) : undefined;
-      const otherUserId = otherUserNumericId ? `user_${otherUserNumericId}` : undefined;
-
-      console.log('Processing chat:', chat.name, 'otherUserId:', otherUserId, 'currentUserId:', currentUserId);
-
-      // İki kullanıcı arasındaki mesajları al (fallback: chatId)
+      // Mesajları getir
       const messages = (currentUserId && otherUserId)
         ? getMessagesBetweenUsers(currentUserId, otherUserId)
         : getMessagesForChat(Number(chat.id));
       
-      console.log('Messages found for chat:', chat.name, 'count:', messages.length, 'messages:', messages);
-      
       // Sadece mevcut kullanıcının gönderdiği veya aldığı mesajları filtrele
-      const userMessages = messages.filter((msg: any) => {
-        if (currentUserId && msg.senderId) {
-          // Eğer senderId varsa, mevcut kullanıcının gönderdiği veya aldığı mesajlar
-          return msg.senderId === currentUserId || msg.receiverId === currentUserId || msg.receiverId === 'all';
-        } else {
-          // Eski mesajlar için isMine kontrolü
-          return msg.isMine === 1 || msg.isMine === 0;
+      const userMessages = messages.filter((m: any) => {
+        if (currentUserId && m.senderId) {
+          return m.senderId === currentUserId || m.receiverId === currentUserId || m.receiverId === 'all';
         }
+        return true;
       });
       
-      console.log('Filtered user messages for chat:', chat.name, 'count:', userMessages.length);
+      // Son mesajı bul
+      const lastMessage = userMessages.length > 0 ? userMessages[userMessages.length - 1] : null;
+      const lastMessageText = lastMessage ? lastMessage.text : 'Son Mesaj Yok';
+      const lastMessageTime = lastMessage ? format(new Date(lastMessage.time), 'HH:mm') : '';
       
-      let lastMessage = 'Son Mesaj Yok';
-      let lastTime = '';
-      if (userMessages.length > 0) {
-        const lastMsg = userMessages[userMessages.length - 1];
-        lastMessage = lastMsg.text;
-        let msgDate: Date | null = null;
-        if (lastMsg.time) {
-          const parsed = Date.parse(lastMsg.time);
-          if (!isNaN(parsed)) {
-            msgDate = new Date(parsed);
-          }
-        }
-        if (msgDate) {
-          const now = new Date();
-          if (
-            now.getDate() === msgDate.getDate() &&
-            now.getMonth() === msgDate.getMonth() &&
-            now.getFullYear() === msgDate.getFullYear()
-          ) {
-            // Bugünkü mesajsa sadece saat göster
-            lastTime = format(msgDate, 'HH:mm', { locale: tr });
-          } else {
-            // Eski mesajsa tarih göster
-            lastTime = format(msgDate, 'dd/MM/yyyy', { locale: tr });
-          }
-        }
-        console.log('Last message for chat:', chat.name, 'text:', lastMessage, 'time:', lastTime);
-      }
-      return { ...chat, lastMessage, time: lastTime, hasMessages: userMessages.length > 0 };
+      return {
+        ...chat,
+        lastMessage: lastMessageText,
+        time: lastMessageTime,
+      };
     });
-    // Sadece mesajı olan chatleri göster ve son mesaj zamanına göre sırala (en güncel en üstte)
-    const sortedChats = chatsWithLastMessage
-      .filter(c => c.hasMessages)
+    
+    // Mesajı olan chat'leri filtrele ve son mesaj zamanına göre sırala
+    const sortedChats = chatsWithMessages
+      .filter(chat => chat.lastMessage !== 'Son Mesaj Yok')
       .sort((a, b) => {
-        // Her iki chat için de getMessagesBetweenUsers kullan
-        const contactA = contacts.find((c: any) => c.name === a.name);
-        const otherUserAId = contactA ? (contactA.userId ?? contactA.id) : undefined;
-        const otherUserIdA = otherUserAId ? `user_${otherUserAId}` : undefined;
-        
-        const contactB = contacts.find((c: any) => c.name === b.name);
-        const otherUserBId = contactB ? (contactB.userId ?? contactB.id) : undefined;
-        const otherUserIdB = otherUserBId ? `user_${otherUserBId}` : undefined;
-        
-        const aMsg = (currentUserId && otherUserIdA) 
-          ? getMessagesBetweenUsers(currentUserId, otherUserIdA)
-          : getMessagesForChat(Number(a.id));
-        const bMsg = (currentUserId && otherUserIdB) 
-          ? getMessagesBetweenUsers(currentUserId, otherUserIdB)
-          : getMessagesForChat(Number(b.id));
-          
-        const aTime = aMsg.length > 0 ? Date.parse(aMsg[aMsg.length - 1].time) : 0;
-        const bTime = bMsg.length > 0 ? Date.parse(bMsg[bMsg.length - 1].time) : 0;
-        return bTime - aTime;
+        if (!a.time || !b.time) return 0;
+        const timeA = new Date(`2000-01-01 ${a.time}`).getTime();
+        const timeB = new Date(`2000-01-01 ${b.time}`).getTime();
+        return timeB - timeA;
       });
+    
     setChats(sortedChats);
   }, [contacts, userId, currentUserId, chatsEnsured]);
 

@@ -259,52 +259,37 @@ export const getMessagesBetweenUsers = (userAId: string, userBId: string): any[]
 export const ensureChatsForUser = (ownerUserIdNumeric: number, ownerUserIdString: string) => {
   console.log('ensureChatsForUser called with:', ownerUserIdNumeric, ownerUserIdString);
   
-  // Kullanıcının taraf olduğu ve birebir olan (receiverId != 'all') tüm mesajları al
+  // Mevcut kullanıcının tüm mesajlarını bul (gönderilen veya alınan)
   const msgs = db.getAllSync(
-    `SELECT senderId, receiverId FROM messages 
-     WHERE (senderId = ? OR receiverId = ?) 
-       AND senderId IS NOT NULL 
-       AND receiverId IS NOT NULL 
-       AND receiverId != 'all';`,
+    'SELECT senderId, receiverId FROM messages WHERE senderId = ? OR receiverId = ?;',
     [ownerUserIdString, ownerUserIdString]
-  );
+  ) as Array<{ senderId: string; receiverId: string }>;
   
-  console.log('Found messages for user:', msgs);
-
-  // Karşı kullanıcıları ayıkla
+  // Karşı kullanıcı ID'lerini topla
   const otherUserIds = new Set<string>();
-  for (const m of msgs as Array<{ senderId: string; receiverId: string }>) {
-    const s: string = m.senderId;
-    const r: string = m.receiverId;
-    if (s === ownerUserIdString && r) otherUserIds.add(r);
-    if (r === ownerUserIdString && s) otherUserIds.add(s);
+  for (const m of msgs) {
+    if (m.senderId === ownerUserIdString && m.receiverId !== 'all') {
+      otherUserIds.add(m.receiverId);
+    } else if (m.receiverId === ownerUserIdString && m.senderId !== 'all') {
+      otherUserIds.add(m.senderId);
+    }
   }
   
+  console.log('Found messages for user:', msgs);
   console.log('Other user IDs found:', Array.from(otherUserIds));
-
+  
   // Her bir karşı kullanıcı için chat satırı oluştur (yoksa)
   for (const otherUserIdStr of otherUserIds) {
     if (!otherUserIdStr.startsWith('user_')) continue;
     const numericPart = Number(otherUserIdStr.replace('user_', ''));
     if (!Number.isFinite(numericPart)) continue;
 
-    // Kullanıcı bilgilerini getir - önce hangi sütun adının kullanıldığını kontrol et
-    let users: any[];
-    try {
-      // Önce 'id' sütunu ile dene
-      users = db.getAllSync('SELECT * FROM users WHERE id = ?;', [numericPart]) as Array<{ id: number; username: string; name: string; password: string }>;
-    } catch (err) {
-      // 'id' yoksa 'userId' ile dene
-      try {
-        users = db.getAllSync('SELECT * FROM users WHERE userId = ?;', [numericPart]) as Array<{ userId: number; username: string; name: string; password: string }>;
-      } catch (err2) {
-        console.log('Could not find user with either id or userId:', numericPart);
-        continue;
-      }
-    }
+    // Kullanıcı bilgilerini getir
+    const users = db.getAllSync('SELECT * FROM users WHERE userId = ?;', [numericPart]) as Array<{ userId: number; username: string; name: string; password: string }>;
+    if (!users || users.length === 0) continue;
     
     const otherUser = users[0];
-    const otherName = otherUser?.name || otherUserIdStr;
+    const otherName = otherUser.name;
     const otherAvatar = '';
 
     console.log('Processing other user:', otherUserIdStr, 'name:', otherName);
@@ -335,23 +320,15 @@ export const ensureChatForIncomingMessage = (receiverUserIdNumeric: number, rece
     return;
   }
 
-  // Gönderen kullanıcı bilgilerini getir - önce hangi sütun adının kullanıldığını kontrol et
-  let users: any[];
-  try {
-    // Önce 'id' sütunu ile dene
-    users = db.getAllSync('SELECT * FROM users WHERE id = ?;', [numericPart]) as Array<{ id: number; username: string; name: string; password: string }>;
-  } catch (err) {
-    // 'id' yoksa 'userId' ile dene
-    try {
-      users = db.getAllSync('SELECT * FROM users WHERE userId = ?;', [numericPart]) as Array<{ userId: number; username: string; name: string; password: string }>;
-    } catch (err2) {
-      console.log('Could not find user with either id or userId:', numericPart);
-      return;
-    }
+  // Gönderen kullanıcı bilgilerini getir
+  const users = db.getAllSync('SELECT * FROM users WHERE userId = ?;', [numericPart]) as Array<{ userId: number; username: string; name: string; password: string }>;
+  if (!users || users.length === 0) {
+    console.log('Could not find sender user:', numericPart);
+    return;
   }
   
   const senderUser = users[0];
-  const senderName = senderUser?.name || senderUserIdString;
+  const senderName = senderUser.name;
   const senderAvatar = '';
 
   console.log('Sender user found:', senderUser, 'name:', senderName);

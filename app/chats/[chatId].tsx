@@ -45,55 +45,38 @@ export default function ChatDetailScreen() {
 
   // Mesajları yükleme fonksiyonu
   const loadMessages = React.useCallback(() => {
-    // Veritabanından mesajları al ve formatla
-    let allMessages = getMessagesForChat(chatId);
-
-    // 1-1 sohbet: her iki kullanıcı arasındaki mesajları getir (farklı chatId'lerde kaydedilmiş olsa bile)
-    if (userId && otherUserId) {
-      allMessages = getMessagesBetweenUsers(userId, otherUserId);
-    }
+    // 1-1 sohbet: her iki kullanıcı arasındaki mesajları getir
+    const allMessages = (userId && otherUserId)
+      ? getMessagesBetweenUsers(userId, otherUserId)
+      : getMessagesForChat(chatId);
     
     // Sadece mevcut kullanıcının gönderdiği veya aldığı mesajları filtrele
     const userMessages = allMessages.filter((m: any) => {
       if (userId && m.senderId) {
-        // Eğer senderId varsa, mevcut kullanıcının gönderdiği veya aldığı mesajlar
-        // receiverId 'all' ise tüm kullanıcılar görebilir
         return m.senderId === userId || m.receiverId === userId || m.receiverId === 'all';
-      } else {
-        // Eski mesajlar için tüm mesajları göster
-        return true;
       }
+      return true;
     });
     
     const msgs = userMessages.map((m: any) => {
       let formattedTime = m.time;
-      // Tarih formatını kontrol et ve düzenle
       if (m.time) {
         const parsed = Date.parse(m.time);
         if (!isNaN(parsed)) {
           const d = new Date(parsed);
-          // Türkçe tarih formatı: gün.ay.yıl saat:dakika
           formattedTime = format(d, 'dd.MM.yy HH:mm', { locale: tr });
         }
       }
       
       // Mesajın kimin tarafından gönderildiğini belirle
-      let isMine = false;
-      if (m.senderId && userId) {
-        // Eğer senderId varsa ve mevcut kullanıcıya aitse
-        isMine = m.senderId === userId;
-      } else {
-        // Eski mesajlar için isMine değerini kullan
-        isMine = !!m.isMine;
-      }
+      const isMine = m.senderId && userId ? m.senderId === userId : !!m.isMine;
       
-      // Mesaj objesini döndür
       return {
         id: m.id.toString(),
         text: m.text,
         isMine: isMine,
         time: formattedTime,
-        type: m.type || 'text', // Varsayılan tip text
+        type: m.type || 'text',
         audioUri: m.audioUri,
         audioDuration: m.audioDuration,
         fileUri: m.fileUri,

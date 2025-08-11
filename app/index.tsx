@@ -3,7 +3,7 @@ import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { useRouter } from 'expo-router'; // useRouter'ı import ediyoruz
 import * as React from 'react';
 import { Platform, SafeAreaView, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { ensureChatsForUser, setupDatabase, setupUserTable } from '../app/database';
+import { setupDatabase, setupUserTable } from '../app/database';
 import { Colors, GlobalStyles } from '../components/SharedStyles';
 // Ekran Bileşenlerini import ediyoruz
 import LoginScreen from '../components/LoginScreen';
@@ -95,8 +95,6 @@ export default function AppTabs() {
             const userId = `user_${u.userId || u.id}`;
             console.log('Generated userId:', userId);
             setCurrentUserId(userId);
-            // Mevcut mesaj tarihine göre chat'leri oluştur
-            try { ensureChatsForUser(u.userId || u.id, userId); } catch {}
           }}
           onNavigateToLogin={() => setShowRegister(false)}
         />
@@ -111,8 +109,6 @@ export default function AppTabs() {
           const userId = `user_${u.userId || u.id}`;
           console.log('Generated userId:', userId);
           setCurrentUserId(userId);
-          // Mevcut mesaj tarihine göre chat'leri oluştur
-          try { ensureChatsForUser(u.userId || u.id, userId); } catch {}
         }}
         onNavigateToRegister={() => setShowRegister(true)}
       />
